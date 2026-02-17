@@ -101,6 +101,23 @@ docker build -t log-doctor-provider-back .
 docker run -p 8000:8000 log-doctor-provider-back
 ```
 
+## 🐙 Docker Compose 실행 (로컬 개발)
+
+Azure Cosmos DB 에뮬레이터와 백엔드를 한 번에 실행하려면 Docker Compose를 사용하세요.
+
+```bash
+# 실행 (백그라운드)
+docker-compose up -d
+
+# 로그 확인
+docker-compose logs -f
+
+# 종료 및 리소스 정리
+docker-compose down
+```
+
+> **참고**: Cosmos DB 에뮬레이터는 초기 구동에 시간이 조금 걸릴 수 있습니다. `localhost:8081/_explorer/health.html`에서 상태를 확인할 수 있습니다.
+
 ## 🧪 테스트 실행
 
 ```bash
@@ -112,4 +129,4 @@ uv run pytest
 
 - **Git**: 커밋은 기능 단위로 최대한 작게 쪼개서 작성합니다.
 - **Linting/Formatting**: Python 표준 스타일(PEP 8)을 준수합니다.
-- ****init**.py (Shortcut Imports)**: `app/core`나 `app/infra`와 같이 자주 참조되는 핵심 패키지는 `__init__.py`를 통해 주요 객체를 노출합니다. 이를 통해 클라이언트 코드가 파일 내부 구조를 몰라도 `from app.core import settings`와 같이 간결하게 임포트할 수 있게 합니다.
+- \***\*init**.py (Shortcut Imports)\*\*: `app/core`나 `app/infra`와 같이 자주 참조되는 핵심 패키지는 `__init__.py`를 통해 주요 객체를 노출합니다. 이를 통해 클라이언트 코드가 파일 내부 구조를 몰라도 `from app.core import settings`와 같이 간결하게 임포트할 수 있게 합니다.
