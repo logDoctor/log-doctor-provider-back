@@ -1,0 +1,50 @@
+services:
+  log-doctor-provider-back:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - AUTH_METHOD=secret
+      - CLIENT_ID=mock-client-id
+      - CLIENT_SECRET=mock-client-secret
+      - TENANT_ID=mock-tenant-id
+      # 로컬 Cosmos 에뮬레이터를 가리킵니다.
+      - COSMOS_ENDPOINT=https://cosmos-emulator:8081
+      - COSMOS_DATABASE=log-doctor-db
+      # 로컬 에뮬레이터를 위한 SSL 인증서 문제 해결 방법
+      - AZURE_COSMOS_DISABLE_SSL=true
+    depends_on:
+      cosmos-emulator:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /app/app
+        - action: rebuild
+          path: ./pyproject.toml
+
+  cosmos-emulator:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    container_name: cosmos-emulator
+    platform: linux/amd64 # 에뮬레이터는 x86 전용이므로 Mac M 시리즈에서는 느릴 수 있습니다.
+    ports:
+      - "8081:8081"
+      - "10251:10251"
+      - "10252:10252"
+      - "10253:10253"
+      - "10254:10254"
+    environment:
+      - AZURE_COSMOS_EMULATOR_PARTITION_COUNT=3
+      - AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE=true
+      - AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE=127.0.0.1
+    healthcheck:
+      test:
+        ["CMD-SHELL", "curl -k https://localhost:8081/_explorer/health.html"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 3g
