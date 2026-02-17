@@ -9,7 +9,8 @@ services:
       - CLIENT_SECRET=mock-client-secret
       - TENANT_ID=mock-tenant-id
       # 로컬 Cosmos 에뮬레이터를 가리킵니다.
-      - COSMOS_ENDPOINT=https://cosmos-emulator:8081
+      # 로컬 Cosmos 에뮬레이터를 가리킵니다. (vnext-preview는 기본적으로 http 사용)
+      - COSMOS_ENDPOINT=http://cosmos-emulator:8081
       - COSMOS_DATABASE=log-doctor-db
       # 로컬 에뮬레이터를 위한 SSL 인증서 문제 해결 방법
       - AZURE_COSMOS_DISABLE_SSL=true
@@ -25,26 +26,28 @@ services:
           path: ./pyproject.toml
 
   cosmos-emulator:
-    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
     container_name: cosmos-emulator
-    platform: linux/amd64 # 에뮬레이터는 x86 전용이므로 Mac M 시리즈에서는 느릴 수 있습니다.
     ports:
       - "8081:8081"
+      - "8080:8080"
       - "10251:10251"
       - "10252:10252"
       - "10253:10253"
       - "10254:10254"
     environment:
-      - AZURE_COSMOS_EMULATOR_PARTITION_COUNT=3
       - AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE=true
-      - AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE=127.0.0.1
+      - ENABLE_OTLP_EXPORTER=false
+      - ENABLE_CONSOLE_EXPORTER=false
+      - AZURE_COSMOS_EMULATOR_ENABLE_TELEMETRY=false
     healthcheck:
-      test:
-        ["CMD-SHELL", "curl -k https://localhost:8081/_explorer/health.html"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      test: |
+        curl -f http://127.0.0.1:8080/ready || wget -q --spider http://127.0.0.1:8080/ready || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     deploy:
       resources:
         limits:
-          memory: 3g
+          memory: 4g

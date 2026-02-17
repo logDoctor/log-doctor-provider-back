@@ -1,7 +1,10 @@
+import structlog
 from azure.cosmos import CosmosClient
 from azure.identity import DefaultAzureCredential
 
 from app.core.config import settings
+
+logger = structlog.get_logger()
 
 
 class CosmosDB:
@@ -41,6 +44,18 @@ class CosmosDB:
     def get_container(cls, container_name: str):
         database = cls.get_database()
         return database.get_container_client(container_name)
+
+    @classmethod
+    def validate_connection(cls):
+        """실제 DB에 접속하여 연결이 유효한지 검증합니다."""
+        try:
+            client = cls.get_client()
+            # 데이터베이스 목록을 조회하여 연결 상태를 확인
+            list(client.list_databases())
+            logger.info("Successfully connected to Cosmos DB")
+        except Exception as e:
+            logger.error("Failed to connect to Cosmos DB", error=str(e))
+            raise
 
     @classmethod
     def close(cls):

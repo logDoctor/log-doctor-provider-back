@@ -16,6 +16,21 @@ from app.core.logging import setup_logging
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+
+    # 시작 시: DB 연결 확인
+    import structlog
+
+    from app.infra.db.cosmos import CosmosDB
+
+    logger = structlog.get_logger()
+    try:
+        CosmosDB.validate_connection()
+    except Exception:
+        import sys
+
+        logger.critical("Could not connect to Cosmos DB. Exiting...")
+        sys.exit(1)
+
     yield
     # 종료 시: DB 커넥션 정리
     from app.infra.db.cosmos import CosmosDB
