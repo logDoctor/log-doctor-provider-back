@@ -7,6 +7,10 @@ WORKDIR /app
 
 # 의존성 설치
 COPY pyproject.toml uv.lock ./
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 RUN uv sync --frozen --no-cache
 
 # 실행 단계
