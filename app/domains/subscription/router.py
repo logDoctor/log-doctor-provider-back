@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi_restful.cbv import cbv
 
-from .dependencies import get_subscription_fetcher
+from .dependencies import get_subscriptions_use_case
 from .schemas import SubscriptionListResponse
-from .services import SubscriptionFetcher
+from .usecases.get_subscriptions_use_case import GetSubscriptionsUseCase
 
 router = APIRouter(prefix="/subscriptions", tags=["Subscription"])
 
 
 @cbv(router)
 class SubscriptionRouter:
-    fetcher: SubscriptionFetcher = Depends(get_subscription_fetcher)
+    use_case: GetSubscriptionsUseCase = Depends(get_subscriptions_use_case)
 
     @router.get("/", response_model=SubscriptionListResponse)
     async def list_user_subscriptions(
@@ -26,4 +26,4 @@ class SubscriptionRouter:
             )
 
         sso_token = authorization.split(" ")[1]
-        return await self.fetcher.fetch(sso_token)
+        return await self.use_case.execute(sso_token)

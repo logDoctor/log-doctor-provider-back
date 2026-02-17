@@ -2,11 +2,11 @@ from app.domains.tenant.repository import TenantRepository
 from app.domains.tenant.schemas import TenantResponse
 
 
-class TenantStatusChecker:
+class GetTenantStatusUseCase:
     def __init__(self, repository: TenantRepository):
         self.repository = repository
 
-    async def check(self, tenant_id: str) -> TenantResponse:
+    async def execute(self, tenant_id: str) -> TenantResponse:
         tenant_data = await self.repository.get_by_id(tenant_id)
 
         if not tenant_data:

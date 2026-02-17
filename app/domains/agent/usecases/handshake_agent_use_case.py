@@ -2,11 +2,11 @@ from app.domains.agent.repository import AgentRepository
 from app.domains.agent.schemas import AgentHandshakeRequest, AgentHandshakeResponse
 
 
-class AgentHandshaker:
+class HandshakeAgentUseCase:
     def __init__(self, repository: AgentRepository):
         self.repository = repository
 
-    async def handshake(self, request: AgentHandshakeRequest) -> AgentHandshakeResponse:
+    async def execute(self, request: AgentHandshakeRequest) -> AgentHandshakeResponse:
         # TODO: Add validation logic (e.g. check if tenant exists)
 
         await self.repository.register_agent(

@@ -1,17 +1,16 @@
 from fastapi import APIRouter, Depends
 from fastapi_restful.cbv import cbv
 
-from .dependencies import get_status_checker
+from .dependencies import get_tenant_status_use_case
 from .schemas import TenantResponse
-from .services import TenantStatusChecker
+from .usecases.get_tenant_status_use_case import GetTenantStatusUseCase
 
 router = APIRouter(prefix="/tenants", tags=["Tenant"])
 
 
 @cbv(router)
 class TenantRouter:
-    # Service is injected via Depends in the class attribute
-    checker: TenantStatusChecker = Depends(get_status_checker)
+    use_case: GetTenantStatusUseCase = Depends(get_tenant_status_use_case)
 
     @router.get("/me", response_model=TenantResponse)
     async def check_my_tenant_status(
@@ -22,4 +21,4 @@ class TenantRouter:
         """
         사용자 자신의 테넌트 등록 상태 및 에이전트 활성화 여부를 조회합니다.
         """
-        return await self.checker.check(tenant_id)
+        return await self.use_case.execute(tenant_id)
