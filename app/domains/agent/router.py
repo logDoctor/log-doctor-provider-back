@@ -1,0 +1,5 @@
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/agents", tags=["Agent"])
+
+# TODO: Add endpoints
