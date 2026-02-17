@@ -1,3 +1,10 @@
 from pydantic import BaseModel
 
-# TODO: Add schemas
+
+class SubscriptionItem(BaseModel):
+    subscription_id: str
+    display_name: str
+
+
+class SubscriptionListResponse(BaseModel):
+    subscriptions: list[SubscriptionItem]
