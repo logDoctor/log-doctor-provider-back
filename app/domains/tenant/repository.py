@@ -42,3 +42,17 @@ class CosmosTenantRepository(TenantRepository):
             "created_at": datetime.now().isoformat(),
         }
         return self.container.create_item(body=new_tenant)
+
+class MockTenantRepository(TenantRepository):
+    """로컬 테스트를 위한 가짜 DB 부품입니다."""
+    async def get_by_id(self, tenant_id: str) -> dict | None:
+        # 가짜 테넌트 데이터를 무조건 성공하는 것처럼 돌려줍니다.
+        return {
+            "id": tenant_id,
+            "tenant_id": tenant_id,
+            "is_active": True,
+            "created_at": "2026-02-19T00:00:00"
+        }
+
+    async def create(self, tenant_id: str) -> dict:
+        return {"id": tenant_id, "tenant_id": tenant_id, "is_active": True}
