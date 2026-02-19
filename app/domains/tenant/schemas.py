@@ -1,6 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
+
 # ---------------------------------------------------------
 # 1. 기존 팀 초안 (테넌트 상태 조회용) - 절대 건드리지 않음!
 # ---------------------------------------------------------
@@ -12,15 +13,30 @@ class TenantResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 # ---------------------------------------------------------
 # 2. 신규 추가 (다이어그램 [Step 2] OBO Flow 구독 목록 조회용)
 # ---------------------------------------------------------
 class SubscriptionInfo(BaseModel):
     """구독 1개의 정보를 담는 모델"""
+
     subscription_id: str = Field(..., description="Azure 구독 ID")
-    display_name: str = Field(..., description="구독의 표시 이름 (예: LogDoctor Production)")
+    display_name: str = Field(
+        ..., description="구독의 표시 이름 (예: LogDoctor Production)"
+    )
     state: str = Field(..., description="구독 상태 (예: Enabled)")
+
 
 class GetSubscriptionsResponse(BaseModel):
     """프론트엔드에 응답할 최종 데이터 (구독 목록 배열)"""
-    subscriptions: list[SubscriptionInfo] = Field(..., description="사용자가 접근 가능한 구독 목록")
+
+    subscriptions: list[SubscriptionInfo] = Field(
+        ..., description="사용자가 접근 가능한 구독 목록"
+    )
+
+
+class TenantOnboardRequest(BaseModel):
+    """프론트엔드에서 온보딩(가입)을 요청할 때 보내는 데이터"""
+
+    tenant_id: str = Field(..., description="고객사 Tenant ID")
+    subscription_id: str = Field(..., description="사용자가 선택한 Azure 구독 ID")
