@@ -31,6 +31,14 @@ async def lifespan(app: FastAPI):
         logger.critical("Could not connect to Cosmos DB. Exiting...")
         sys.exit(1)
 
+    # 🚀 Load Azure AD OpenID Connect Metadata
+    from app.core.security import azure_scheme
+
+    try:
+        await azure_scheme.openid_config.load_config()
+    except Exception as e:
+        logger.warning(f"Could not load OpenID Config for Azure AD: {e}")
+
     yield
     # 종료 시: DB 커넥션 정리
     from app.infra.db.cosmos import CosmosDB
@@ -44,10 +52,11 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 if settings.BACKEND_CORS_ORIGINS:
+    allow_all_origins = "*" in settings.BACKEND_CORS_ORIGINS
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.BACKEND_CORS_ORIGINS,
-        allow_credentials=True,
+        allow_credentials=not allow_all_origins,  # ["*"] 일 경우 True 쓰면 FastAPI 크래시남
         allow_methods=["*"],
         allow_headers=["*"],
     )

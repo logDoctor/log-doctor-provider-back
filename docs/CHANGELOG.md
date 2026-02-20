@@ -20,3 +20,10 @@
 14. `app/infra/db/cosmos.py` 및 `app/main.py`에 Graceful Shutdown (DB close) 로직 추가.
 15. `tests/__init__.py` 삭제 및 `app/` 하위 패키지 구조 표준화.
 16. `pre-commit` 훅 도입으로 커밋 시 자동 포매팅 & 린트 검사 환경 구축.
+
+## 2026-02-20
+
+### sunghean
+
+1. 로컬 개발용 Azure Cosmos DB Emulator(`localhost:8081`) 접속을 위해 `.env` 템플릿 업데이트 및 `COSMOS_KEY` 변수 도입.
+2. `app/infra/db/cosmos.py`에서 로컬 환경 시 Entra ID(`DefaultAzureCredential`) 대신 Primary Key 인증 방식을 자동 사용하도록 호환성 패치 적용.

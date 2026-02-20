@@ -1,11 +1,11 @@
 from fastapi import Depends
 
-from .repository import AgentRepository, AzureAgentRepository
+from .repository import AgentRepository, MockAgentRepository
 from .usecases.handshake_agent_use_case import HandshakeAgentUseCase
 
 
 def get_agent_repository() -> AgentRepository:
-    return AzureAgentRepository()
+    return MockAgentRepository()
 
 
 def get_handshake_agent_use_case(

@@ -17,14 +17,16 @@ class CosmosDB:
         if cls._client is None:
             # 설정에 따라 Managed Identity (DefaultAzureCredential) 또는 키를 사용합니다.
             # 로컬 에뮬레이터에서는 키나 인증 비활성화가 필요할 수 있으며, DefaultAzureCredential 오류를 방지합니다.
-            # 하지만 Python SDK의 `credential` 인자는 특정 자격 증명을 받거나 키가 제공될 경우 키를 사용합니다.
-            # 로컬 에뮬레이터와 `DefaultAzureCredential` 조합은 까다로울 수 있습니다.
-            # 이 "mock" 설정에서는 단순함을 위해 자격 증명을 유지하지만 제한 사항에 유의하십시오.
-
-            credential = DefaultAzureCredential()
 
             # SSL 비활성화를 위한 전송 설정
             connection_verify = not settings.AZURE_COSMOS_DISABLE_SSL
+
+            if settings.COSMOS_KEY:
+                logger.info("Connecting to Cosmos DB using Primary Key")
+                credential = settings.COSMOS_KEY
+            else:
+                logger.info("Connecting to Cosmos DB using DefaultAzureCredential")
+                credential = DefaultAzureCredential()
 
             cls._client = CosmosClient(
                 settings.COSMOS_ENDPOINT,
