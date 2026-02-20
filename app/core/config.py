@@ -11,10 +11,14 @@ class Settings(BaseSettings):
     CLIENT_ID: str | None = None
     CLIENT_SECRET: str | None = None
     TENANT_ID: str | None = None
+    APP_ID_URI: str | None = (
+        None  # Teams SSO Token의 Audience 검증용 (예: api://localhost:53000/{CLIENT_ID})
+    )
 
     # Cosmos DB Settings
     COSMOS_ENDPOINT: str = "https://mock-cosmos.documents.azure.com:443/"
     COSMOS_DATABASE: str = "log-doctor-db"
+    COSMOS_KEY: str | None = None
     AZURE_COSMOS_DISABLE_SSL: bool = False
 
     # CORS Settings
