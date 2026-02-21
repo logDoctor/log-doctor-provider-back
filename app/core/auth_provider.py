@@ -23,7 +23,7 @@ class EntraIDTokenProvider(TokenProvider):
         SSO 토큰을 On-Behalf-Of(OBO) 액세스 토큰으로 교환합니다.
         주의: 이 방식은 사용자의 MFA 설정 등에 따라 로컬 개발 환경에서 실패할 수 있습니다.
         """
-        scopes = ["https://management.core.windows.net//user_impersonation"]
+        scopes = ["https://management.azure.com/user_impersonation"]
 
         # OBO Flow를 위해 MSAL을 사용합니다.
         authority = (
@@ -47,13 +47,12 @@ class EntraIDTokenProvider(TokenProvider):
         # MFA(AADSTS50076) 챌린지 감지 및 claims 추출
         if "AADSTS50076" in error_desc or result.get("error") == "interaction_required":
             claims = result.get("claims")
-            if claims:
-                # 관례적으로 에러 메시지에 claims를 포함하거나, 호출 측에서 result를 직접 볼 수 있게 처리해야 함
-                # 여기선 ValueError에 특수 접두사를 붙여 상위 레이어에서 파싱하기 쉽게 만듭니다.
-                raise ValueError(f"MFA_REQUIRED|{claims}")
+            if not claims:
+                # Entra ID가 명시적인 claims를 주지 않는 경우에도 401을 발생시켜 프론트엔드에서 재인증을 유도하게 함
+                claims = "MISSING_CLAIMS"
             
-            error_desc = "MFA(다단계 인증)가 필요하여 OBO 토큰 교환에 실패했습니다. (Claims missing)"
-
+            raise ValueError(f"MFA_REQUIRED|{claims}")
+            
         raise ValueError(f"Entra ID OBO Token Exchange Failed: {error_desc}")
 
     async def get_service_token(self) -> str:
