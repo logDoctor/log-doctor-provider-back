@@ -15,27 +15,29 @@ class TokenProvider(ABC):
 class EntraIDTokenProvider(TokenProvider):
     async def get_obo_token(self, sso_token: str) -> str:
         """SSO 토큰을 On-Behalf-Of 액세스 토큰으로 교환합니다."""
+        scopes = ["https://management.core.windows.net//user_impersonation"]
+
+        if settings.AUTH_METHOD == "managed_identity":
+            from azure.identity.aio import DefaultAzureCredential
+            
+            # 개발자의 로컬 환경 (az login) 혹은 Azure 리소스의 Managed Identity 권한을 사용하여
+            # 아까 변경했던 tenant_id 고정값을 지우고 기본 설정으로 되돌립니다.
+            # 이제 설치하신 azd(Azure Developer CLI)의 로그인 정보를 자동으로 가져옵니다.
+            credential = DefaultAzureCredential()
+            token_info = await credential.get_token("https://management.azure.com/.default")
+            await credential.close()
+            return token_info.token
+
+        # AUTH_METHOD == "secret" 인 경우, 원래의 OBO 흐름을 사용합니다.
         authority = (
             f"https://login.microsoftonline.com/{settings.TENANT_ID or 'common'}"
         )
 
-        # AUTH_METHOD에 따라 클라이언트 인증 정보 결정
-        client_credential = None
-        if settings.AUTH_METHOD == "secret":
-            client_credential = settings.CLIENT_SECRET
-        elif settings.AUTH_METHOD == "managed_identity":
-            # 엄격한 Managed Identity OBO의 경우 MSAL은 client_assertion을 요구합니다.
-            # 여기서는 확장이 가능한 단순화된 로직을 제공합니다.
-            # (운영 환경에서는 Federated Credentials/Assertion을 사용해야 할 수 있습니다.)
-            client_credential = None
-
         app = msal.ConfidentialClientApplication(
             settings.CLIENT_ID,
             authority=authority,
-            client_credential=client_credential,
+            client_credential=settings.CLIENT_SECRET,
         )
-
-        scopes = ["https://management.core.windows.net//user_impersonation"]
 
         result = app.acquire_token_on_behalf_of(user_assertion=sso_token, scopes=scopes)
 

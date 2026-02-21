@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
+from azure.mgmt.subscription.aio import SubscriptionClient
 
-from app.infra.external.azure_client import AzureRestClient
+from app.infra.external.azure_client import AzureRestClient, DummyCredential
 
 
 # 1. Interface
@@ -14,10 +15,16 @@ class SubscriptionRepository(ABC):
 # 2. Implementation
 class AzureSubscriptionRepository(SubscriptionRepository):
     async def list_subscriptions(self, access_token: str) -> list[dict]:
-        url = "/subscriptions?api-version=2020-01-01"
-
-        async with AzureRestClient.get_client(access_token) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-            data = response.json()
-            return data.get("value", [])
+        credential = DummyCredential(access_token)
+        
+        subscriptions = []
+        async with SubscriptionClient(credential) as client:
+            async for sub in client.subscriptions.list():
+                subscriptions.append({
+                    "subId": sub.id,
+                    "subscriptionId": sub.subscription_id,
+                    "displayName": sub.display_name,
+                    "state": sub.state
+                })
+            
+        return subscriptions
