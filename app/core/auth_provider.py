@@ -20,10 +20,13 @@ class EntraIDTokenProvider(TokenProvider):
         if settings.AUTH_METHOD == "managed_identity":
             from azure.identity.aio import DefaultAzureCredential
             
-            # 개발자의 로컬 환경 (az login) 혹은 Azure 리소스의 Managed Identity 권한을 사용하여
-            # 아까 변경했던 tenant_id 고정값을 지우고 기본 설정으로 되돌립니다.
-            # 이제 설치하신 azd(Azure Developer CLI)의 로그인 정보를 자동으로 가져옵니다.
-            credential = DefaultAzureCredential()
+            # 개발자의 로컬 환경 (az login) 혹은 Azure 리소스의 Managed Identity 권한을 사용합니다.
+            # .env에 지정된 TENANT_ID가 있다면 해당 테넌트 권한을 강제합니다.
+            credential_kwargs = {}
+            if settings.TENANT_ID:
+                credential_kwargs["tenant_id"] = settings.TENANT_ID
+
+            credential = DefaultAzureCredential(**credential_kwargs)
             token_info = await credential.get_token("https://management.azure.com/.default")
             await credential.close()
             return token_info.token

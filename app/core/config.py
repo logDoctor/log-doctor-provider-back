@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # Authentication Settings
     # AUTH_METHOD: managed_identity | secret | mock
-    AUTH_METHOD: str = "secret"
+    AUTH_METHOD: str = "managed_identity"
 
     # Azure AD Settings
     # Managed Identity 사용 시 필요하지 않을 수 있으나, AUTH_METHOD="secret"인 경우 .env에서 주입받습니다.
