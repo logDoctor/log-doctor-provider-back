@@ -19,7 +19,15 @@ azure_scheme = MultiTenantAzureAuthorizationCodeBearer(
 async def get_obo_access_token(sso_token: str) -> str:
     """
     설정된 Auth Provider를 통해 프론트엔드의 SSO 토큰을 액세스 토큰으로 교환합니다.
-    이 로직은 클라우드에 독립적이며 TokenProvider 인터페이스에 의존합니다.
+    주의: MFA 요구사항 등으로 인해 로컬 환경에서 실패할 가능성이 높습니다.
     """
     provider = get_token_provider()
     return await provider.get_obo_token(sso_token)
+
+
+async def get_service_access_token() -> str:
+    """
+    설정된 Auth Provider를 통해 서비스 자체의 권한(Identity)으로 액세스 토큰을 가져옵니다. (직방)
+    """
+    provider = get_token_provider()
+    return await provider.get_service_token()

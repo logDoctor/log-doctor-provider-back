@@ -8,33 +8,24 @@ from .config import settings
 class TokenProvider(ABC):
     @abstractmethod
     async def get_obo_token(self, sso_token: str) -> str:
-        """Exchange SSO token for an On-Behalf-Of access token."""
+        """SSO 토큰을 사용자를 대신하는(OBO) 액세스 토큰으로 교환합니다."""
+        pass
+
+    @abstractmethod
+    async def get_service_token(self) -> str:
+        """서비스 자체의 ID(Managed Identity 등)를 사용하여 액세스 토큰을 가져옵니다."""
         pass
 
 
 class EntraIDTokenProvider(TokenProvider):
     async def get_obo_token(self, sso_token: str) -> str:
-        """SSO 토큰을 On-Behalf-Of 액세스 토큰으로 교환합니다."""
+        """
+        SSO 토큰을 On-Behalf-Of(OBO) 액세스 토큰으로 교환합니다.
+        주의: 이 방식은 사용자의 MFA 설정 등에 따라 로컬 개발 환경에서 실패할 수 있습니다.
+        """
         scopes = ["https://management.core.windows.net//user_impersonation"]
 
-        if settings.AUTH_METHOD == "managed_identity":
-            from azure.identity.aio import DefaultAzureCredential, ChainedTokenCredential, ManagedIdentityCredential, AzureCliCredential
-            
-            # 개발자의 로컬 환경 (az login) 혹은 Azure 리소스의 Managed Identity 권한을 사용합니다.
-            # .env에 지정된 TENANT_ID가 있다면 해당 테넌트 권한을 강제합니다.
-            if settings.TENANT_ID:
-                credential = ChainedTokenCredential(
-                    ManagedIdentityCredential(),
-                    AzureCliCredential(tenant_id=settings.TENANT_ID)
-                )
-            else:
-                credential = DefaultAzureCredential()
-
-            token_info = await credential.get_token("https://management.azure.com/.default")
-            await credential.close()
-            return token_info.token
-
-        # AUTH_METHOD == "secret" 인 경우, 원래의 OBO 흐름을 사용합니다.
+        # OBO Flow를 위해 MSAL을 사용합니다.
         authority = (
             f"https://login.microsoftonline.com/{settings.TENANT_ID or 'common'}"
         )
@@ -45,15 +36,35 @@ class EntraIDTokenProvider(TokenProvider):
             client_credential=settings.CLIENT_SECRET,
         )
 
+        # Teams에서 넘겨준 SSO 토큰을 ARM(Azure Resource Manager) 토큰으로 교환
         result = app.acquire_token_on_behalf_of(user_assertion=sso_token, scopes=scopes)
 
         if "access_token" in result:
             return result["access_token"]
 
         error_desc = result.get("error_description", "Authentication failed")
-        raise ValueError(
-            f"Entra ID OBO Token Exchange Failed (Method: {settings.AUTH_METHOD}): {error_desc}"
-        )
+        if "AADSTS50076" in error_desc:
+            error_desc = "MFA(다단계 인증)가 필요하여 OBO 토큰 교환에 실패했습니다. Managed Identity 방식을 권장합니다."
+
+        raise ValueError(f"Entra ID OBO Token Exchange Failed: {error_desc}")
+
+    async def get_service_token(self) -> str:
+        """
+        서비스(또는 개발자 CLI) 자체의 권한으로 토큰을 가져옵니다. (직방 방식)
+        """
+        from azure.identity.aio import DefaultAzureCredential, ChainedTokenCredential, ManagedIdentityCredential, AzureCliCredential
+        
+        if settings.TENANT_ID:
+            credential = ChainedTokenCredential(
+                ManagedIdentityCredential(),
+                AzureCliCredential(tenant_id=settings.TENANT_ID)
+            )
+        else:
+            credential = DefaultAzureCredential()
+
+        token_info = await credential.get_token("https://management.azure.com/.default")
+        await credential.close()
+        return token_info.token
 
 
 def get_token_provider() -> TokenProvider:
