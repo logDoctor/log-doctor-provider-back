@@ -32,6 +32,8 @@ class CosmosDB:
                 settings.COSMOS_ENDPOINT,
                 credential=credential,
                 connection_verify=connection_verify,
+                # 에뮬레이터 환경에서 SDK가 127.0.0.1로 라우팅하는 것을 방지
+                enable_endpoint_discovery=False if settings.COSMOS_KEY else True,
             )
         return cls._client
 
@@ -39,7 +41,7 @@ class CosmosDB:
     def get_database(cls):
         if cls._database is None:
             client = cls.get_client()
-            cls._database = client.get_database_client(settings.COSMOS_DATABASE)
+            cls._database = client.create_database_if_not_exists(id=settings.COSMOS_DATABASE)
         return cls._database
 
     @classmethod
@@ -49,12 +51,13 @@ class CosmosDB:
 
     @classmethod
     def validate_connection(cls):
-        """실제 DB에 접속하여 연결이 유효한지 검증합니다."""
+        """실제 DB에 접속하여 연결이 유효한지 검증하고 DB를 자동 생성합니다."""
         try:
             client = cls.get_client()
-            # 데이터베이스 목록을 조회하여 연결 상태를 확인
             list(client.list_databases())
-            logger.info("Successfully connected to Cosmos DB")
+            # 시작 시점에 데이터베이스를 자동으로 생성 (에뮬레이터 초기화 용이)
+            cls.get_database()
+            logger.info(f"Successfully connected to Cosmos DB (Database: {settings.COSMOS_DATABASE})")
         except Exception as e:
             logger.error("Failed to connect to Cosmos DB", error=str(e))
             raise
