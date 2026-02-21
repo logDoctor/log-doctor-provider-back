@@ -9,6 +9,7 @@ dependencies = [
     "azure-identity>=1.25.2",
     "azure-mgmt-resource>=25.0.0",
     "azure-mgmt-subscription>=3.1.1",
+    "debugpy>=1.8.20",
     "fastapi>=0.129.0",
     "fastapi-azure-auth>=5.2.0",
     "fastapi-restful>=0.6.0",

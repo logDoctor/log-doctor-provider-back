@@ -46,6 +46,8 @@ cryptography==46.0.5
     #   fastapi-azure-auth
     #   msal
     #   pyjwt
+debugpy==1.8.20
+    # via log-doctor-provider-back (pyproject.toml)
 fastapi==0.129.1
     # via
     #   log-doctor-provider-back (pyproject.toml)

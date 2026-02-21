@@ -5,16 +5,33 @@
             "name": "🚀 Backend (FastAPI via uv)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/.venv/Scripts/uvicorn.exe",
+            "module": "uvicorn",
             "args": [
                 "app.main:app",
                 "--port",
                 "8000",
                 "--reload"
             ],
+            "envFile": "${workspaceFolder}/.env",
             "console": "integratedTerminal",
             "justMyCode": false,
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "🐳 Docker: Attach to Backend",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/app"
+                }
+            ],
+            "justMyCode": true
         }
     ]
 }

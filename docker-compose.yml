@@ -1,17 +1,20 @@
 services:
   log-doctor-provider-back:
     build: .
+    command: ["uv", "run", "python", "-m", "debugpy", "--listen", "0.0.0.0:5678", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
       - "8000:8000"
+      - "5678:5678"
     environment:
       - AUTH_METHOD=secret
       - CLIENT_ID=mock-client-id
       - CLIENT_SECRET=mock-client-secret
       - TENANT_ID=mock-tenant-id
-      # 로컬 Cosmos 에뮬레이터를 가리킵니다.
       # 로컬 Cosmos 에뮬레이터를 가리킵니다. (vnext-preview는 기본적으로 http 사용)
       - COSMOS_ENDPOINT=http://cosmos-emulator:8081
       - COSMOS_DATABASE=log-doctor-db
+      # 에뮬레이터 고정 키
+      - COSMOS_KEY=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==
       # 로컬 에뮬레이터를 위한 SSL 인증서 문제 해결 방법
       - AZURE_COSMOS_DISABLE_SSL=true
     depends_on:
@@ -40,6 +43,7 @@ services:
       - ENABLE_OTLP_EXPORTER=false
       - ENABLE_CONSOLE_EXPORTER=false
       - AZURE_COSMOS_EMULATOR_ENABLE_TELEMETRY=false
+      - AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE=cosmos-emulator
     healthcheck:
       test: |
         curl -f http://127.0.0.1:8080/ready || wget -q --spider http://127.0.0.1:8080/ready || exit 1
