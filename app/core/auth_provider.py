@@ -65,19 +65,19 @@ class EntraIDTokenProvider(TokenProvider):
         # 1. 운영 환경: Managed Identity (1순위)
         credentials.append(ManagedIdentityCredential())
 
-        # 2. 로컬 개발 환경: .env의 Client Secret (2순위 - az login 없이 직방으로 작동 가능)
+        # 2. 로컬 개발 환경: Azure CLI (2순위 - 방금 팀장님이 수행하신 az login 세션을 사용)
+        if settings.TENANT_ID:
+            credentials.append(AzureCliCredential(tenant_id=settings.TENANT_ID))
+        else:
+            credentials.append(AzureCliCredential())
+
+        # 3. 로컬 개발 환경: .env의 Client Secret (3순위 - 마지막 수단)
         if settings.CLIENT_ID and settings.CLIENT_SECRET and settings.TENANT_ID:
             credentials.append(ClientSecretCredential(
                 tenant_id=settings.TENANT_ID,
                 client_id=settings.CLIENT_ID,
                 client_secret=settings.CLIENT_SECRET
             ))
-            
-        # 3. 로컬 개발 환경: Azure CLI (3순위)
-        if settings.TENANT_ID:
-            credentials.append(AzureCliCredential(tenant_id=settings.TENANT_ID))
-        else:
-            credentials.append(AzureCliCredential())
 
         credential = ChainedTokenCredential(*credentials)
 
