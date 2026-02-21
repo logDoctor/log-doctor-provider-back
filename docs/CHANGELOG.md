@@ -51,3 +51,9 @@ q# CHANGELOG
    - `.vscode/launch.json`에 Docker 원격 Attach 프로필 추가.
 6. 로컬 개발망에서의 프론트엔드 연동 테스트를 위해 Azure AD 인증 일시적 우회.
    - `docker-compose.yml`에서 `AUTH_METHOD=mock`으로 설정하여 Token 검증 없이 `/api/v1/` 응답 가능하도록 조치.
+7. `log-doctor-db` 초기화 시 `tenants` 컨테이너 누락 방지 및 로그인 동기화 로직 버그(`409 Conflict`) 수정.
+   - `app/infra/db/cosmos.py`의 `get_container`에서 파티션 키 `/id` 기반 컨테이너 자동 생성 로직 추가.
+   - `app/domains/tenant/repository.py`에서 사용자 및 테넌트 정보를 저장할 때 중복 생성 방지를 위해 `create_item` 대신 `upsert_item` 사용으로 변경.
+8. HTTP Request 로깅 미들웨어 및 로컬 비동기 AD 인증 모듈(`aiohttp`) 복구.
+   - `app/main.py`에 `@app.middleware("http")`를 추가하여 모든 요청과 401 권한 오류 등이 터미널에 출력되도록 가시성 개선.
+   - 로컬 `managed_identity` 설정 사용 시 `DefaultAzureCredential` 비동기 통신이 `aiohttp`에 의존함에 따라 `uv add aiohttp`를 통해 패키지 환경 복구.
