@@ -1,4 +1,4 @@
-# CHANGELOG
+q# CHANGELOG
 
 ## 2026-02-17
 
@@ -27,3 +27,19 @@
 
 1. 로컬 개발용 Azure Cosmos DB Emulator(`localhost:8081`) 접속을 위해 `.env` 템플릿 업데이트 및 `COSMOS_KEY` 변수 도입.
 2. `app/infra/db/cosmos.py`에서 로컬 환경 시 Entra ID(`DefaultAzureCredential`) 대신 Primary Key 인증 방식을 자동 사용하도록 호환성 패치 적용.
+
+## 2026-02-21
+
+### Choe Seonghyeon
+
+1. 로컬 환경에서 Azure Cosmos DB Emulator 구동 및 백엔드 연결 안정화.
+   - `docker-compose.yml` 리소스에 에뮬레이터 IP 라우팅 문제 해결을 위한 `AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE` 환경 변수 추가.
+   - 백엔드 컨테이너의 로컬 DB 인증을 위해 `COSMOS_KEY` 고정 변수 주입 추가.
+   - `app/infra/db/cosmos.py`에서 `enable_endpoint_discovery=False` 옵션을 추가하여 Docker 내부 컨테이너 통신 시 발생하는 127.0.0.1 라우팅(Connection Refused) 에러 해결.
+2. 로컬 개발 환경용 Azure AD 인증 처리 방식 전면 수정 (`AADSTS50076` MFA 에러 해결).
+   - `app/core/auth_provider.py`에서 로컬 `AUTH_METHOD`가 `managed_identity`일 경우 OBO(On-Behalf-Of) 토큰 교환을 생략하고 `azure-identity` 패키지의 `DefaultAzureCredential`을 사용하여 직접 토큰 발급.
+   - 이를 통해 프론트엔드 토큰(Microsoft 365 계정)과 백엔드 토큰(Azure 계정) 분리 상황에서 발생하는 Tenant 불일치 및 MFA 요구 에러 방지.
+   - `aiohttp` 패키지 추가를 통한 로컬 비동기 인증 파이프라인 수립.
+3. Python 버전 고정 및 패키지 환경 동기화 (`uv`).
+   - `uv`를 이용하여 백엔드 런타임을 Python 3.12로 고정(`.python-version` 추가).
+   - 클라우드 배포 호환성을 위해 `uv.lock` 및 `requirements.txt` 최신화 및 안쓰는 패키지 정리.
