@@ -57,3 +57,6 @@ q# CHANGELOG
 8. HTTP Request 로깅 미들웨어 및 로컬 비동기 AD 인증 모듈(`aiohttp`) 복구.
    - `app/main.py`에 `@app.middleware("http")`를 추가하여 모든 요청과 401 권한 오류 등이 터미널에 출력되도록 가시성 개선.
    - 로컬 `managed_identity` 설정 사용 시 `DefaultAzureCredential` 비동기 통신이 `aiohttp`에 의존함에 따라 `uv add aiohttp`를 통해 패키지 환경 복구.
+9. 로컬 개발 환경의 백엔드 실행 방식을 Docker Compose에서 로컬 직접 실행(uvicorn)으로 원복 결정.
+   - 사유: Docker Compose 컨테이너 내부는 호스트의 Azure CLI(`azd auth login`) 세션과 격리되어 있어 `DefaultAzureCredential`이 로컬 토큰을 획득하지 못하고 401 Unauthorized 에러를 유발하는 인증 호환성 문제 발견.
+   - 조치: 보안 우회(mock) 대신, Azure SDK가 호스트의 인증 컨텍스트를 정상적으로 승계할 수 있도록 로컬 터미널에서 FastAPI를 직접 실행하는 방식으로 로컬 개발 가이드를 변경.
