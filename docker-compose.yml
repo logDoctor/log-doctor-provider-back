@@ -1,12 +1,12 @@
 services:
   log-doctor-provider-back:
     build: .
-    command: ["uv", "run", "python", "-m", "debugpy", "--listen", "0.0.0.0:5678", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: ["python", "-m", "debugpy", "--listen", "0.0.0.0:5678", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
       - "8000:8000"
       - "5678:5678"
     environment:
-      - AUTH_METHOD=secret
+      - AUTH_METHOD=mock
       - CLIENT_ID=mock-client-id
       - CLIENT_SECRET=mock-client-secret
       - TENANT_ID=mock-tenant-id
