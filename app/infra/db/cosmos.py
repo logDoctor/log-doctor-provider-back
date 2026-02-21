@@ -47,7 +47,13 @@ class CosmosDB:
     @classmethod
     def get_container(cls, container_name: str):
         database = cls.get_database()
-        return database.get_container_client(container_name)
+        from azure.cosmos import PartitionKey
+        # 기본적으로 /id 를 파티션 키로 사용하여 컨테이너를 없으면 자동 생성합니다. (에뮬레이터용)
+        # 운영 환경에서는 Bicep(IaC)을 통해 생성되지만 로컬 개발 편의성을 위해 추가합니다.
+        return database.create_container_if_not_exists(
+            id=container_name,
+            partition_key=PartitionKey(path="/id")
+        )
 
     @classmethod
     def validate_connection(cls):

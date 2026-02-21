@@ -16,6 +16,8 @@ from app.core.logging import setup_logging
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    import logging
+    logging.getLogger("fastapi_azure_auth").setLevel(logging.DEBUG)
 
     # 시작 시: DB 연결 확인
     import structlog
@@ -60,6 +62,24 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+import time
+import structlog
+logger = structlog.get_logger()
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    logger.info(
+        "Request",
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        process_time=f"{process_time:.4f}s"
+    )
+    return response
 
 app.add_exception_handler(LogDoctorException, log_doctor_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)

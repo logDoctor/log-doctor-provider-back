@@ -41,7 +41,7 @@ class AzureTenantRepository(TenantRepository):
             "is_active": False,
             "created_at": datetime.now().isoformat(),
         }
-        return self.container.create_item(body=new_tenant)
+        return self.container.upsert_item(body=new_tenant)
 
 
 # 3. User Repository Interface
@@ -74,4 +74,4 @@ class AzureUserRepository(UserRepository):
             "name": name,
             "created_at": datetime.now().isoformat(),
         }
-        return self.container.create_item(body=new_user)
+        return self.container.upsert_item(body=new_user)
