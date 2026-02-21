@@ -29,4 +29,17 @@ class SubscriptionRouter:
             )
 
         sso_token = authorization.split(" ")[1]
-        return await self.use_case.execute(sso_token)
+        try:
+            return await self.use_case.execute(sso_token)
+        except ValueError as e:
+            if str(e).startswith("MFA_REQUIRED|"):
+                claims = str(e).split("|")[1]
+                raise HTTPException(
+                    status_code=401,
+                    detail={
+                        "error": "mfa_required",
+                        "message": "MFA(다단계 인증)가 필요합니다. 휴대폰 인증을 진행해주세요.",
+                        "claims": claims
+                    }
+                )
+            raise HTTPException(status_code=500, detail=str(e))

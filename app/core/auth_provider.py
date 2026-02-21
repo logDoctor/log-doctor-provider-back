@@ -43,8 +43,16 @@ class EntraIDTokenProvider(TokenProvider):
             return result["access_token"]
 
         error_desc = result.get("error_description", "Authentication failed")
-        if "AADSTS50076" in error_desc:
-            error_desc = "MFA(다단계 인증)가 필요하여 OBO 토큰 교환에 실패했습니다. Managed Identity 방식을 권장합니다."
+        
+        # MFA(AADSTS50076) 챌린지 감지 및 claims 추출
+        if "AADSTS50076" in error_desc or result.get("error") == "interaction_required":
+            claims = result.get("claims")
+            if claims:
+                # 관례적으로 에러 메시지에 claims를 포함하거나, 호출 측에서 result를 직접 볼 수 있게 처리해야 함
+                # 여기선 ValueError에 특수 접두사를 붙여 상위 레이어에서 파싱하기 쉽게 만듭니다.
+                raise ValueError(f"MFA_REQUIRED|{claims}")
+            
+            error_desc = "MFA(다단계 인증)가 필요하여 OBO 토큰 교환에 실패했습니다. (Claims missing)"
 
         raise ValueError(f"Entra ID OBO Token Exchange Failed: {error_desc}")
 
