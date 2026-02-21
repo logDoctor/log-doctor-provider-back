@@ -43,3 +43,11 @@ q# CHANGELOG
 3. Python 버전 고정 및 패키지 환경 동기화 (`uv`).
    - `uv`를 이용하여 백엔드 런타임을 Python 3.12로 고정(`.python-version` 추가).
    - 클라우드 배포 호환성을 위해 `uv.lock` 및 `requirements.txt` 최신화 및 안쓰는 패키지 정리.
+4. 로컬 에뮬레이터 환경에서 Cosmos DB 인스턴스 자동 생성 로직 추가.
+   - `app/infra/db/cosmos.py`의 `validate_connection` 실행 시 `log-doctor-db` 데이터베이스를 자동으로 생성(`create_database_if_not_exists`)하도록 보완.
+5. 로컬 Docker Compose 환경 통합 디버깅(VS Code Attach) 지원 추가.
+   - `docker-compose.yml` 리소스에 포트 `5678` 개방 및 `uv run python -m debugpy`를 거쳐 `uvicorn`이 실행되도록 명령어 수정.
+   - 런타임 디버깅 패키지 `debugpy` 의존성 추가.
+   - `.vscode/launch.json`에 Docker 원격 Attach 프로필 추가.
+6. 로컬 개발망에서의 프론트엔드 연동 테스트를 위해 Azure AD 인증 일시적 우회.
+   - `docker-compose.yml`에서 `AUTH_METHOD=mock`으로 설정하여 Token 검증 없이 `/api/v1/` 응답 가능하도록 조치.
