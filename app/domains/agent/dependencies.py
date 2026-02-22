@@ -1,22 +1,30 @@
 from fastapi import Depends
+from azure.cosmos.aio import ContainerProxy
 
-# 아까 우리가 repository.py에 작성했던 클래스들을 가져옵니다.
-from .repository import AgentRepository, MockAgentRepository, CosmosAgentRepository
-from .usecases.handshake_agent_use_case import HandshakeAgentUseCase
+# 인프라(DB 연결) 모듈
+from app.infra.db.cosmos import get_container
 
-def get_agent_repository() -> AgentRepository:
-    """
-    어떤 DB 부품을 쓸지 결정하는 곳입니다.
-    """
-    # 💡 지금은 로컬에서 API가 잘 뚫렸는지 테스트해야 하므로 MockDB를 리턴합니다!
-    # 나중에 실제 클라우드 환경에서는 CosmosAgentRepository()로 한 줄만 바꾸면 됩니다.
-    return MockAgentRepository()
+# 에이전트 도메인 모듈
+from app.domains.agent.repository import AgentRepository, CosmosAgentRepository
+from app.domains.agent.usecases.agent_handshaker import AgentHandshaker
 
-def get_handshake_agent_use_case(
-    # 여기서 FastAPI의 Depends가 get_agent_repository를 실행해서 리턴값을 넣어줍니다!
-    repository: AgentRepository = Depends(get_agent_repository),
-) -> HandshakeAgentUseCase:
-    """
-    조립된 DB 부품을 Usecase(뇌)에 꽂아서 라우터로 전달합니다.
-    """
-    return HandshakeAgentUseCase(repository)
+# 테넌트 도메인 모듈
+from app.domains.tenant.dependencies import get_tenant_repository
+from app.domains.tenant.repository import TenantRepository
+
+
+def get_agent_container() -> ContainerProxy:
+    return get_container("agents")
+
+
+def get_agent_repository(
+    container: ContainerProxy = Depends(get_agent_container),
+) -> AgentRepository:
+    return CosmosAgentRepository(container=container)
+
+
+def get_agent_handshaker(
+    agent_repo: AgentRepository = Depends(get_agent_repository),
+    tenant_repo: TenantRepository = Depends(get_tenant_repository),
+) -> AgentHandshaker:
+    return AgentHandshaker(agent_repo=agent_repo, tenant_repo=tenant_repo)
