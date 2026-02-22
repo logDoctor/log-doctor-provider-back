@@ -16,6 +16,11 @@ class TenantRepository(ABC):
     async def create(self, tenant_id: str, subscription_id: str) -> dict:
         pass
 
+    # 기존 데이터를 업데이트하는 인터페이스
+    @abstractmethod
+    async def update(self, tenant_data: dict) -> dict:
+        pass
+
 
 # 2. Concrete Implementation (Cosmos DB)
 class CosmosTenantRepository(TenantRepository):
@@ -39,5 +44,8 @@ class CosmosTenantRepository(TenantRepository):
             "is_active": False,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
-        # 핸드셰이크는 재시도를 고려해 upsert_item을 쓰는 것이 안전
         return await self.container.upsert_item(body=new_tenant)
+
+    # 기존 데이터를 통째로 덮어쓰는(Upsert) 기능
+    async def update(self, tenant_data: dict) -> dict:
+        return await self.container.upsert_item(body=tenant_data)

@@ -23,20 +23,18 @@ class AgentHandshaker:
             version=request.agent_version,
         )
 
-        # 2. 검증 로직 (TODO 해결)
-        tenant_data = await self.tenant_repo.read_item(
-            request.tenant_id, request.tenant_id
-        )
+        # 2. 검증 로직 (get_by_id 사용)
+        tenant_data = await self.tenant_repo.get_by_id(tenant_id=request.tenant_id)
 
         if not tenant_data:
             logger.warning(
                 "❌ [Handshake] 유효하지 않은 테넌트", tenant_id=request.tenant_id
             )
             raise LogDoctorException(
-                status_code=404, detail="Tenant not found. Please onboard first."
+                status_code=404, message="Tenant not found. Please onboard first."
             )
 
-        # 3. Repository를 통해 DB에 저장 (hostname 등 최신 스키마 반영)
+        # 3. Repository를 통해 DB에 저장
         await self.agent_repo.register_agent(
             tenant_id=request.tenant_id,
             subscription_id=request.subscription_id,
@@ -48,7 +46,7 @@ class AgentHandshaker:
         # 4. 테넌트 상태 업데이트 (최초 연결 시 활성화)
         if not tenant_data.get("is_active"):
             tenant_data["is_active"] = True
-            await self.tenant_repo.upsert_item(tenant_data)
+            await self.tenant_repo.update(tenant_data)
             logger.info(
                 "✨ [Handshake] 테넌트 상태 활성화 (is_active=True) 완료",
                 tenant_id=request.tenant_id,
