@@ -20,3 +20,12 @@
 14. `app/infra/db/cosmos.py` 및 `app/main.py`에 Graceful Shutdown (DB close) 로직 추가.
 15. `tests/__init__.py` 삭제 및 `app/` 하위 패키지 구조 표준화.
 16. `pre-commit` 훅 도입으로 커밋 시 자동 포매팅 & 린트 검사 환경 구축.
+
+## 2026-02-22
+
+### Louishstyle
+
+1. 백엔드 Azure Cosmos DB 비동기(AIO) 클라이언트 엔진 구축 (aiohttp 패키지 추가)
+2. Domain 계층 NounVerber 네이밍 규칙(TenantOnboarder 등) 전면 적용
+3. Azure Managed Identity(RBAC) 기반의 실제 DB 연동 및 온보딩 핸드셰이크 구현 완료
+4. Repository 인터페이스(ABC)와 Cosmos DB 구현체 분리를 통한 클린 아키텍처 구조 확립

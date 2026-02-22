@@ -1,45 +1,39 @@
 from fastapi import Depends
 
-from .repository import MockTenantRepository, CosmosTenantRepository, TenantRepository
-from .usecases.get_tenant_status_use_case import GetTenantStatusUseCase
+from .repository import CosmosTenantRepository, TenantRepository
+from .usecases.tenant_status_checker import (
+    TenantStatusChecker,
+)  # 이름 변경된 유즈케이스
 from .azure_repository import AzureRepository, MockAzureRepository
-from .usecases.get_subscriptions_use_case import GetSubscriptionsUseCase
-from .usecases.onboard_tenant_use_case import OnboardTenantUseCase
+from .usecases.subscription_fetcher import SubscriptionFetcher  # 이름 변경된 유즈케이스
+from .usecases.tenant_onboarder import TenantOnboarder  # 이름 변경된 유즈케이스
 
 
 # ==========================================
-# 1. 기존 조립 라인 (테넌트 상태 조회용) - 유지
+# CosmosDB로 교체
 # ==========================================
 def get_tenant_repository() -> TenantRepository:
-    """Returns the concrete implementation of TenantRepository."""
-    return MockTenantRepository()
+    return CosmosTenantRepository()  # DB 연결
 
 
-def get_tenant_status_use_case(
+# 이하 NounVerber 이름으로 교체된 DI 주입기
+def get_tenant_status_checker(
     repository: TenantRepository = Depends(get_tenant_repository),
-) -> GetTenantStatusUseCase:
-    """Returns a GetTenantStatusUseCase instance with the injected repository."""
-    return GetTenantStatusUseCase(repository)
+) -> TenantStatusChecker:
+    return TenantStatusChecker(repository)
 
 
-# ==========================================
-# 2. 🌟 신규 조립 라인 (OBO 구독 목록 조회용)
-# ==========================================
 def get_azure_repository() -> AzureRepository:
-    """외부 Azure 통신용 부품을 결정합니다. (지금은 로컬 테스트용 Mock 반환)"""
     return MockAzureRepository()
 
 
-def get_subscriptions_use_case(
+def get_subscription_fetcher(
     azure_repository: AzureRepository = Depends(get_azure_repository),
-) -> GetSubscriptionsUseCase:
-    """Mock Azure 부품을 구독 조회 유즈케이스(두뇌)에 꽂아서 반환합니다."""
-    return GetSubscriptionsUseCase(azure_repository)
+) -> SubscriptionFetcher:
+    return SubscriptionFetcher(azure_repository)
 
 
-def get_onboard_tenant_use_case(
-    # 온보딩에는 우리 DB가 필요하니까 get_tenant_repository를 꽂아줍니다.
+def get_tenant_onboarder(
     repository: TenantRepository = Depends(get_tenant_repository),
-) -> OnboardTenantUseCase:
-    """새로운 테넌트 온보딩 처리를 위한 유즈케이스를 반환합니다."""
-    return OnboardTenantUseCase(repository)
+) -> TenantOnboarder:
+    return TenantOnboarder(repository)

@@ -2,20 +2,18 @@ from fastapi import APIRouter, Depends, Header
 from fastapi_restful.cbv import cbv
 
 from .dependencies import (
-    get_tenant_status_use_case,
-    get_subscriptions_use_case,
-    get_onboard_tenant_use_case,  # 1. 온보딩 조립 라인 추가
+    get_tenant_status_checker,
+    get_subscription_fetcher,
+    get_tenant_onboarder,  # 1. 온보딩 조립 라인 추가
 )
 from .schemas import (
     TenantResponse,
     GetSubscriptionsResponse,
     TenantOnboardRequest,  # 2. 온보딩 요청 데이터 양식 추가
 )
-from .usecases.get_tenant_status_use_case import GetTenantStatusUseCase
-from .usecases.get_subscriptions_use_case import GetSubscriptionsUseCase
-from .usecases.onboard_tenant_use_case import (
-    OnboardTenantUseCase,
-)  # 3. 온보딩 두뇌 추가
+from .usecases.tenant_status_checker import TenantStatusChecker
+from .usecases.subscription_fetcher import SubscriptionFetcher
+from .usecases.tenant_onboarder import TenantOnboarder
 
 router = APIRouter(prefix="/tenants", tags=["Tenant"])
 
@@ -23,15 +21,13 @@ router = APIRouter(prefix="/tenants", tags=["Tenant"])
 @cbv(router)
 class TenantRouter:
     # 1. 기존 유즈케이스 (상태 조회용)
-    status_use_case: GetTenantStatusUseCase = Depends(get_tenant_status_use_case)
+    status_use_case: TenantStatusChecker = Depends(get_tenant_status_checker)
 
     # 2. 신규 유즈케이스 (구독 조회용)
-    subscriptions_use_case: GetSubscriptionsUseCase = Depends(
-        get_subscriptions_use_case
-    )
+    subscriptions_use_case: SubscriptionFetcher = Depends(get_subscription_fetcher)
 
     # 3. 온보딩 유즈케이스
-    onboard_use_case: OnboardTenantUseCase = Depends(get_onboard_tenant_use_case)
+    onboard_use_case: TenantOnboarder = Depends(get_tenant_onboarder)
 
     @router.get("/me", response_model=TenantResponse)
     async def check_my_tenant_status(

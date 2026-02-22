@@ -2,7 +2,7 @@ from app.domains.tenant.repository import TenantRepository
 from app.domains.tenant.schemas import TenantResponse
 
 
-class GetTenantStatusUseCase:
+class TenantStatusChecker:
     def __init__(self, repository: TenantRepository):
         self.repository = repository
 

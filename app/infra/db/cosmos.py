@@ -1,6 +1,6 @@
 import structlog
-from azure.cosmos import CosmosClient
-from azure.identity import DefaultAzureCredential
+from azure.cosmos.aio import CosmosClient
+from azure.identity.aio import DefaultAzureCredential
 
 from app.core.config import settings
 
@@ -8,22 +8,14 @@ logger = structlog.get_logger()
 
 
 class CosmosDB:
-    _instance = None
-    _client = None
+    _client: CosmosClient | None = None
     _database = None
 
     @classmethod
     def get_client(cls) -> CosmosClient:
         if cls._client is None:
-            # 설정에 따라 Managed Identity (DefaultAzureCredential) 또는 키를 사용합니다.
-            # 로컬 에뮬레이터에서는 키나 인증 비활성화가 필요할 수 있으며, DefaultAzureCredential 오류를 방지합니다.
-            # 하지만 Python SDK의 `credential` 인자는 특정 자격 증명을 받거나 키가 제공될 경우 키를 사용합니다.
-            # 로컬 에뮬레이터와 `DefaultAzureCredential` 조합은 까다로울 수 있습니다.
-            # 이 "mock" 설정에서는 단순함을 위해 자격 증명을 유지하지만 제한 사항에 유의하십시오.
-
+            # 설정에 따라 Managed Identity 적용
             credential = DefaultAzureCredential()
-
-            # SSL 비활성화를 위한 전송 설정
             connection_verify = not settings.AZURE_COSMOS_DISABLE_SSL
 
             cls._client = CosmosClient(
@@ -46,26 +38,25 @@ class CosmosDB:
         return database.get_container_client(container_name)
 
     @classmethod
-    def validate_connection(cls):
-        """실제 DB에 접속하여 연결이 유효한지 검증합니다."""
-        try:
-            client = cls.get_client()
-            # 데이터베이스 목록을 조회하여 연결 상태를 확인
-            list(client.list_databases())
-            logger.info("Successfully connected to Cosmos DB")
-        except Exception as e:
-            logger.error("Failed to connect to Cosmos DB", error=str(e))
-            raise
-
-    @classmethod
-    def close(cls):
-        """커넥션을 닫고 클라이언트를 정리합니다."""
+    async def close(cls):  # 비동기 종료
         if cls._client:
-            cls._client.close()
+            await cls._client.close()
             cls._client = None
             cls._database = None
 
+    @classmethod
+    async def validate_connection(cls):
+        """실제 DB에 접속하여 연결이 유효한지 비동기로 검증합니다."""
+        try:
+            client = cls.get_client()
+            # 비동기 클라이언트의 데이터베이스 목록 조회를 통해 연결 확인
+            async for _ in client.list_databases():
+                break
+            logger.info("✅ Successfully connected to Cosmos DB")
+        except Exception as e:
+            logger.error("❌ Failed to connect to Cosmos DB", error=str(e))
+            raise
+
 
 def get_container(container_name: str):
-    """컨테이너 클라이언트를 가져오기 위한 의존성 주입 도우미"""
     return CosmosDB.get_container(container_name)
