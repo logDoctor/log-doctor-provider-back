@@ -25,7 +25,15 @@
 
 ### Louishstyle
 
-1. 백엔드 Azure Cosmos DB 비동기(AIO) 클라이언트 엔진 구축 (aiohttp 패키지 추가)
-2. Domain 계층 NounVerber 네이밍 규칙(TenantOnboarder 등) 전면 적용
-3. Azure Managed Identity(RBAC) 기반의 실제 DB 연동 및 온보딩 핸드셰이크 구현 완료
-4. Repository 인터페이스(ABC)와 Cosmos DB 구현체 분리를 통한 클린 아키텍처 구조 확립
+1. 백엔드 Azure Cosmos DB 비동기(AIO) 클라이언트 엔진 구축. (aiohttp 패키지 추가)
+2. Domain 계층 NounVerber 네이밍 규칙(TenantOnboarder 등) 전면 적용.
+3. Azure Managed Identity(RBAC) 기반의 실제 DB 연동 및 온보딩 핸드셰이크 구현 완료.
+4. Repository 인터페이스(ABC)와 Cosmos DB 구현체 분리를 통한 클린 아키텍처 구조 확립.
+5. 에이전트 도메인 요청/응답 스키마(AgentHandshakeRequest, AgentHandshakeResponse) 정의 및 Pydantic 기반 유효성 검사 적용.
+6. AgentRepository 추상 인터페이스 및 Cosmos DB 기반 비동기 구현체(CosmosAgentRepository) 구현.
+7. 에이전트 등록, 테넌트 존재 여부 검증 및 테넌트 상태 활성화를 수행하는 AgentHandshaker 유즈케이스 구현.
+8. TenantRepository에 테넌트 개별 조회(get_by_id) 및 데이터 업데이트(update) 메서드 추가하여 도메인 간 교차 로직 지원.
+9. FastAPI CBV(Class-Based View) 패턴을 적용한 에이전트 핸드셰이크 API 엔드포인트(/agents/handshake) 개통.
+10. dependencies.py를 구축하여 도메인별 리포지토리 및 유즈케이스의 의존성 주입(DI) 흐름 중앙 집중화.
+11. 전역 API 라우터(v1_router)에 에이전트 도메인 라우터를 통합하여 외부 API 노출.
+12. 커스텀 예외 클래스(LogDoctorException)와 API 응답 구조를 연동하여 에이전트 핸드셰이크 실패 시의 에러 핸들링 강화.
