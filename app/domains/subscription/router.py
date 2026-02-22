@@ -32,14 +32,7 @@ class SubscriptionRouter:
         try:
             return await self.use_case.execute(sso_token)
         except ValueError as e:
-            if str(e).startswith("MFA_REQUIRED|"):
-                claims = str(e).split("|")[1]
-                raise HTTPException(
-                    status_code=401,
-                    detail={
-                        "error": "mfa_required",
-                        "message": "MFA(다단계 인증)가 필요합니다. 휴대폰 인증을 진행해주세요.",
-                        "claims": claims
-                    }
-                )
+            # 단순화된 에러 처리: 백엔드 에러를 500으로 그대로 노출
             raise HTTPException(status_code=500, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")

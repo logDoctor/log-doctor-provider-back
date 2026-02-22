@@ -4,15 +4,20 @@ from app.core.auth_provider import get_token_provider
 from app.core.config import settings
 
 # Teams SSO 토큰은 종종 Client ID만을 Audience(aud)로 사용하거나, 설정된 App ID URI를 사용합니다.
-expected_audience = settings.APP_ID_URI or settings.CLIENT_ID
+expected_audiences = [settings.CLIENT_ID]
+if settings.APP_ID_URI:
+    expected_audiences.append(settings.APP_ID_URI)
+if settings.CLIENT_ID:
+    expected_audiences.append(f"api://{settings.CLIENT_ID}")
 
 # Azure AD JWT Token Validation Scheme (Multi-tenant)
 azure_scheme = MultiTenantAzureAuthorizationCodeBearer(
-    app_client_id=[settings.CLIENT_ID, expected_audience],
-    scopes={
-        f"api://{settings.CLIENT_ID}/access_as_user": "Access Log Doctor API as user",
-    },
+    app_client_id=list(filter(None, expected_audiences)),
+    # scopes를 아예 비워두거나 (모든 유효한 토큰 허용), 혹은 명확한 URI를 지정해야 합니다.
+    # Teams SSO 토큰은 종종 'access_as_user' 스코프를 가집니다.
+    scopes=None, # 디버깅을 위해 일단 스코프 검증을 비웁니다.
     validate_iss=False,
+    leeway=300, # 서버 시간 불일치(Clock Skew) 허용 오차: 5분
 )
 
 

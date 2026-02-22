@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     # Azure AD Settings
     # Managed Identity 사용 시 필요하지 않을 수 있으나, AUTH_METHOD="secret"인 경우 .env에서 주입받습니다.
     CLIENT_ID: str | None = None
+    MANAGED_IDENTITY_CLIENT_ID: str | None = None
     CLIENT_SECRET: str | None = None
     TENANT_ID: str | None = None
     APP_ID_URI: str | None = (
