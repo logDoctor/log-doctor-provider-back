@@ -1,0 +1,40 @@
+targetScope = 'subscription'
+
+param location string = 'koreacentral'
+param appName string = 'logdoctor-client'
+param env string = 'dev'
+param resourceGroupName string = 'rg-logdoctor-client'
+param providerUrl string = ''
+param packageUrl string = ''
+param providerClientId string = ''
+
+var uniqueId = uniqueString(subscription().subscriptionId, resourceGroupName)
+var storageAccountName = 'st${toLower(uniqueId)}'
+var functionAppName = '${appName}-${env}-fn-${uniqueId}'
+var appServicePlanName = '${appName}-${env}-plan'
+
+// 1. 리소스 그룹 생성 (구독 수준)
+resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
+  name: resourceGroupName
+  location: location
+}
+
+// 2. Azure Functions 배포 (생성된 리소스 그룹 내에 배포)
+module functions 'modules/functions.bicep' = {
+  scope: rg
+  name: 'functions-deployment'
+  params: {
+    location: location
+    functionAppName: functionAppName
+    storageAccountName: storageAccountName
+    appServicePlanName: appServicePlanName
+    providerUrl: providerUrl
+    tenantId: subscription().tenantId
+    subscriptionId: subscription().subscriptionId
+    packageUrl: packageUrl
+    providerClientId: providerClientId
+  }
+}
+
+output functionAppUrl string = 'https://${functions.outputs.functionAppHostName}'
+output resourceGroupId string = rg.id
