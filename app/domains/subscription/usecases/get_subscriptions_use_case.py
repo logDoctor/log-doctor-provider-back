@@ -1,4 +1,4 @@
-from app.core import security
+from app.core.auth import get_obo_access_token
 from app.domains.subscription.repository import SubscriptionRepository
 from app.domains.subscription.schemas import SubscriptionItem, SubscriptionListResponse
 
@@ -9,7 +9,7 @@ class GetSubscriptionsUseCase:
 
     async def execute(self, sso_token: str) -> SubscriptionListResponse:
         # 1. OBO Token Exchange
-        arm_token = await security.get_obo_access_token(sso_token)
+        arm_token = await get_obo_access_token(sso_token)
 
         # 2. Call Repository Directly
         raw_subscriptions = await self.repository.list_subscriptions(arm_token)
