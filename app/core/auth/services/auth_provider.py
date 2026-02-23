@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import msal
 import structlog
 
-from app.core import settings
+from app.core.config import settings
 from app.core.exceptions import UnauthorizedException
 
 logger = structlog.get_logger()
