@@ -1,4 +1,3 @@
-from .auth import get_obo_access_token
 from .config import settings
 from .exceptions import (
     BadRequestException,
@@ -8,6 +7,8 @@ from .exceptions import (
     UnauthorizedException,
 )
 from .logging import setup_logging
+
+from .auth import get_obo_access_token  # isort: skip # noqa: E402
 
 __all__ = [
     "settings",
