@@ -8,3 +8,9 @@ class SubscriptionItem(BaseModel):
 
 class SubscriptionListResponse(BaseModel):
     subscriptions: list[SubscriptionItem]
+
+
+class SubscriptionSetupResponse(BaseModel):
+    bicep_url: str
+    parameters: dict
+    portal_link: str

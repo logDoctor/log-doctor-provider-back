@@ -1,29 +1,49 @@
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Request
 from fastapi_restful.cbv import cbv
 
-from .dependencies import get_subscriptions_use_case
-from .schemas import SubscriptionListResponse
-from .usecases.get_subscriptions_use_case import GetSubscriptionsUseCase
+from app.core.auth import get_sso_token
+from app.core.config import settings
+
+from .dependencies import (
+    get_subscription_setup_info_use_case,
+    get_subscriptions_use_case,
+)
+from .schemas import SubscriptionListResponse, SubscriptionSetupResponse
+from .usecases import GetSubscriptionSetupInfoUseCase, GetSubscriptionsUseCase
 
 router = APIRouter(prefix="/subscriptions", tags=["Subscription"])
 
 
 @cbv(router)
 class SubscriptionRouter:
-    use_case: GetSubscriptionsUseCase = Depends(get_subscriptions_use_case)
+    get_subscriptions_use_case: GetSubscriptionsUseCase = Depends(
+        get_subscriptions_use_case
+    )
+    get_subscription_setup_info_use_case: GetSubscriptionSetupInfoUseCase = Depends(
+        get_subscription_setup_info_use_case
+    )
 
     @router.get("/", response_model=SubscriptionListResponse)
     async def list_user_subscriptions(
         self,
-        authorization: str = Header(..., description="Bearer {Teams SSO Token}"),
+        sso_token: str = Depends(get_sso_token),
     ):
-        """
-        사용자의 Azure 구독 목록을 조회합니다 (OBO Flow).
-        """
-        if not authorization.startswith("Bearer "):
-            raise HTTPException(
-                status_code=401, detail="Invalid authorization header format"
-            )
+        return await self.get_subscriptions_use_case.execute(sso_token)
 
-        sso_token = authorization.split(" ")[1]
-        return await self.use_case.execute(sso_token)
+    @router.get(
+        "/{subscription_id}/setup-info", response_model=SubscriptionSetupResponse
+    )
+    async def get_subscription_setup_info(
+        self,
+        subscription_id: str,
+        request: Request,
+    ):
+        # Azure Container Apps 환경 또는 운영 환경에서는 항상 HTTPS를 사용하도록 강제합니다.
+        scheme = request.url.scheme
+        if "azurecontainerapps.io" in request.url.netloc or not settings.DEBUG:
+            scheme = "https"
+
+        base_url = f"{scheme}://{request.url.netloc}"
+        return await self.get_subscription_setup_info_use_case.execute(
+            subscription_id, base_url
+        )

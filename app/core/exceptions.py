@@ -36,3 +36,10 @@ class ForbiddenException(LogDoctorException):
 
     def __init__(self, message: str = "Forbidden"):
         super().__init__(message, code="FORBIDDEN", status_code=403)
+
+
+class ConflictException(LogDoctorException):
+    """리소스가 이미 존재하거나 상태 충돌이 발생했을 때 던지는 예외입니다."""
+
+    def __init__(self, message: str = "Resource already exists or conflict occurred"):
+        super().__init__(message, code="CONFLICT", status_code=409)

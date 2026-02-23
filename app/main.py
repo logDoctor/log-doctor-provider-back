@@ -1,3 +1,5 @@
+import sys
+import traceback
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,6 +13,7 @@ from app.core.config import settings
 from app.core.exceptions import LogDoctorException
 from app.core.handlers import log_doctor_exception_handler, unhandled_exception_handler
 from app.core.logging import setup_logging
+from app.infra.db.cosmos import CosmosDB
 
 
 @asynccontextmanager
@@ -20,22 +23,19 @@ async def lifespan(app: FastAPI):
     # 시작 시: DB 연결 확인
     import structlog
 
-    from app.infra.db.cosmos import CosmosDB
-
     logger = structlog.get_logger()
     try:
-        CosmosDB.validate_connection()
-    except Exception:
-        import sys
+        await CosmosDB.validate_connection()
+    except Exception as e:
+        print(f"!!! STARTUP ERROR: {e} !!!", file=sys.stderr)
+        traceback.print_exc()
 
         logger.critical("Could not connect to Cosmos DB. Exiting...")
         sys.exit(1)
 
     yield
-    # 종료 시: DB 커넥션 정리
-    from app.infra.db.cosmos import CosmosDB
 
-    CosmosDB.close()
+    await CosmosDB.close()
 
 
 app = FastAPI(title="Log Doctor Backend", version="1.0.0", lifespan=lifespan)

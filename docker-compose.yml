@@ -4,11 +4,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - AUTH_METHOD=secret
-      - CLIENT_ID=mock-client-id
-      - CLIENT_SECRET=mock-client-secret
-      - TENANT_ID=mock-tenant-id
-      # 로컬 Cosmos 에뮬레이터를 가리킵니다.
+      - AUTH_METHOD=${AUTH_METHOD:-secret}
+      - CLIENT_ID=${CLIENT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - TENANT_ID=${TENANT_ID}
+      - BASE_URL=${BASE_URL:-http://localhost:8000}
       # 로컬 Cosmos 에뮬레이터를 가리킵니다. (vnext-preview는 기본적으로 http 사용)
       - COSMOS_ENDPOINT=http://cosmos-emulator:8081
       - COSMOS_DATABASE=log-doctor-db
@@ -17,6 +17,8 @@ services:
     depends_on:
       cosmos-emulator:
         condition: service_healthy
+      db-setup:
+        condition: service_completed_successfully
     develop:
       watch:
         - action: sync
@@ -24,6 +26,17 @@ services:
           target: /app/app
         - action: rebuild
           path: ./pyproject.toml
+
+  db-setup:
+    build: .
+    environment:
+      - COSMOS_ENDPOINT=http://cosmos-emulator:8081
+      - COSMOS_DATABASE=log-doctor-db
+      - AZURE_COSMOS_DISABLE_SSL=true
+    command: ["python", "scripts/setup_db.py"]
+    depends_on:
+      cosmos-emulator:
+        condition: service_healthy
 
   cosmos-emulator:
     image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
@@ -51,3 +64,18 @@ services:
       resources:
         limits:
           memory: 4g
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: azurite
+    hostname: azurite
+    ports:
+      - "10100:10000"
+      - "10101:10001"
+      - "10102:10002"
+    command: "azurite -l /data --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0"
+    volumes:
+      - azurite_data:/data
+
+volumes:
+  azurite_data:
