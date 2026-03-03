@@ -1,0 +1,81 @@
+services:
+  log-doctor-provider-back:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - AUTH_METHOD=${AUTH_METHOD:-secret}
+      - CLIENT_ID=${CLIENT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - TENANT_ID=${TENANT_ID}
+      - BASE_URL=${BASE_URL:-http://localhost:8000}
+      # 로컬 Cosmos 에뮬레이터를 가리킵니다. (vnext-preview는 기본적으로 http 사용)
+      - COSMOS_ENDPOINT=http://cosmos-emulator:8081
+      - COSMOS_DATABASE=log-doctor-db
+      # 로컬 에뮬레이터를 위한 SSL 인증서 문제 해결 방법
+      - AZURE_COSMOS_DISABLE_SSL=true
+    depends_on:
+      cosmos-emulator:
+        condition: service_healthy
+      db-setup:
+        condition: service_completed_successfully
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /app/app
+        - action: rebuild
+          path: ./pyproject.toml
+
+  db-setup:
+    build: .
+    environment:
+      - COSMOS_ENDPOINT=http://cosmos-emulator:8081
+      - COSMOS_DATABASE=log-doctor-db
+      - AZURE_COSMOS_DISABLE_SSL=true
+    command: ["python", "scripts/setup_db.py"]
+    depends_on:
+      cosmos-emulator:
+        condition: service_healthy
+
+  cosmos-emulator:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
+    container_name: cosmos-emulator
+    ports:
+      - "8081:8081"
+      - "8080:8080"
+      - "10251:10251"
+      - "10252:10252"
+      - "10253:10253"
+      - "10254:10254"
+    environment:
+      - AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE=true
+      - ENABLE_OTLP_EXPORTER=false
+      - ENABLE_CONSOLE_EXPORTER=false
+      - AZURE_COSMOS_EMULATOR_ENABLE_TELEMETRY=false
+    healthcheck:
+      test: |
+        curl -f http://127.0.0.1:8080/ready || wget -q --spider http://127.0.0.1:8080/ready || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: azurite
+    hostname: azurite
+    ports:
+      - "10100:10000"
+      - "10101:10001"
+      - "10102:10002"
+    command: "azurite -l /data --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0"
+    volumes:
+      - azurite_data:/data
+
+volumes:
+  azurite_data:
