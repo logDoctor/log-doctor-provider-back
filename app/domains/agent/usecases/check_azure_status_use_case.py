@@ -24,7 +24,7 @@ class CheckAzureStatusUseCase:
 
     async def execute(self, tenant_id: str, agent_id: str) -> dict:
         # 1. 에이전트 조회
-        agent = await self.repository.get_agent(tenant_id=tenant_id, agent_id=agent_id)
+        agent = await self.repository.get_active_agent_by_client_id(tenant_id=tenant_id, agent_id=agent_id)
         if not agent:
             raise NotFoundException(f"에이전트를 찾을 수 없습니다: {agent_id}")
 

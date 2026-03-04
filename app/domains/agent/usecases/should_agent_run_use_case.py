@@ -17,7 +17,7 @@ class ShouldAgentRunUseCase:
         """
         에이전트의 폴링 요청에 대해 현재 시점이 분석 실행 시점인지 판단합니다.
         """
-        agent = await self.repository.get_agent(tenant_id=tenant_id, agent_id=agent_id)
+        agent = await self.repository.get_active_agent_by_client_id(tenant_id=tenant_id, agent_id=agent_id)
 
         if not agent:
             logger.warning(

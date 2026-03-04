@@ -10,8 +10,13 @@ from .models import Agent
 # 1. Interface
 class AgentRepository(ABC):
     @abstractmethod
-    async def get_agent(self, tenant_id: str, agent_id: str) -> Agent | None:
-        """에이전트 정보를 조회합니다."""
+    async def get_agent(self, tenant_id: str, id: str) -> Agent | None:
+        """기본키(id)로 에이전트 정보를 직접 조회합니다."""
+        pass
+
+    @abstractmethod
+    async def get_active_agent_by_client_id(self, tenant_id: str, agent_id: str) -> Agent | None:
+        """가장 최근 활성화된(또는 삭제 중인) 에이전트 우선으로 클라이언트 ID(agent_id) 기반 정보를 조회합니다."""
         pass
 
     @abstractmethod
@@ -33,9 +38,30 @@ class AzureAgentRepository(AgentRepository):
     def __init__(self, container: ContainerProxy):
         self.container = container
 
-    async def get_agent(self, tenant_id: str, agent_id: str) -> Agent | None:
-        item_id = f"{tenant_id}:{agent_id}"
-        return await self.container.read_item(item=item_id, partition_key=tenant_id)
+    async def get_agent(self, tenant_id: str, id: str) -> Agent | None:
+        return await self.container.read_item(item=id, partition_key=tenant_id)
+
+    async def get_active_agent_by_client_id(self, tenant_id: str, agent_id: str) -> Agent | None:
+        # CosmosDB Query로 활성/가장 최근 갱신된 에이전트 1건을 가져옵니다.
+        # 동일한 agent_id 중 최신 레코드(삭제되지 않은 것 우선) 1건
+        query = (
+            "SELECT * FROM c "
+            "WHERE c.tenant_id = @tenant_id AND c.agent_id = @agent_id "
+            "ORDER BY c.status ASC, c._ts DESC" # 'ACTIVE'가 'DELETED'보다 앞에 옴
+        )
+        parameters = [
+            {"name": "@tenant_id", "value": tenant_id},
+            {"name": "@agent_id", "value": agent_id},
+        ]
+        
+        items = self.container.query_items(
+            query=query,
+            parameters=parameters,
+            partition_key=tenant_id
+        )
+        
+        agents = [Agent.from_dict(item) async for item in items]
+        return agents[0] if agents else None
 
     async def upsert_agent(self, item: dict) -> Agent:
         return await self.container.upsert_item(item)

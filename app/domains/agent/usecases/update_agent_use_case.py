@@ -9,7 +9,7 @@ class UpdateAgentUseCase:
         self.repository = repository
 
     async def execute(self, request: AgentUpdateRequest) -> AgentUpdateResponse:
-        agent = await self.repository.get_agent(
+        agent = await self.repository.get_active_agent_by_client_id(
             tenant_id=request.tenant_id, agent_id=request.agent_id
         )
 

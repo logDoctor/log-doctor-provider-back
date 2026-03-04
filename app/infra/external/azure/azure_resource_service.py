@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 
 import httpx
 import structlog
-
 from azure.identity.aio import DefaultAzureCredential
 
 from .azure_client import AzureRestClient
@@ -54,7 +53,7 @@ class AzureResourceServiceImpl(AzureResourceService):
             async with AzureRestClient.get_client(access_token) as client:
                 response = await client.delete(url)
 
-                if response.status_code == 202:
+                if response.status_code in (200, 202, 204):
                     logger.info(
                         "Resource group deletion accepted",
                         subscription_id=subscription_id,
@@ -99,8 +98,16 @@ class AzureResourceServiceImpl(AzureResourceService):
                     headers={"Authorization": f"Bearer {token.token}"},
                 )
 
-                # ARM API HEAD 요청은 200 또는 204가 올 수 있으므로 2xx를 성공으로 간주
-                exists = response.status_code < 400
+                # ARM API HEAD 요청은 204나 200이 올 수 있음. 
+                # 404인 경우에만 "존재하지 않음"으로 간주하고,
+                # 401, 403 등 권한 문제나 일시적인 오류는 안전하게 "존재함(True)"으로 간주 (삭제 무단 확정 방지)
+                exists = response.status_code != 404
+                if response.status_code >= 400 and response.status_code != 404:
+                    logger.warning(
+                        "Resource group check unexpected status",
+                        status_code=response.status_code,
+                        resource_group_name=resource_group_name
+                    )
                 logger.info(
                     "Resource group existence check",
                     resource_group_name=resource_group_name,

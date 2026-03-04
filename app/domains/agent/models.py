@@ -38,7 +38,7 @@ class Agent:
         """최초 에이전트 도메인 객체를 생성하는 팩토리 메서드입니다."""
         now = datetime.now(UTC).isoformat()
         return Agent(
-            id=f"{tenant_id}:{agent_id}",
+            id=str(uuid.uuid4()),
             tenant_id=tenant_id,
             subscription_id=subscription_id,
             resource_group_name=resource_group_name,
@@ -137,10 +137,25 @@ class Agent:
         """에이전트를 비활성화 상태로 전환합니다. (Azure 리소스 삭제 진행 중)"""
         self.status = "DEACTIVATING"
 
+    def is_deleted(self) -> bool:
+        """에이전트가 삭제된 상태인지 확인합니다."""
+        return self.status == "DELETED"
+
+    def activate(self):
+        """에이전트 핸드쉐이크가 성공하여 활성 상태로 전환합니다."""
+        if self.status == "INITIALIZING":
+            self.status = "ACTIVE"
+
     def confirm_deletion(self):
         """Azure 리소스 삭제가 확인된 후 최종 삭제 상태로 전환합니다."""
         self.status = "DELETED"
         self.deleted_at = datetime.now(UTC).isoformat()
+
+    def reactivate(self):
+        """삭제된 에이전트가 다시 핸드쉐이크를 보낼 때 복구합니다."""
+        self.status = "ACTIVE"
+        self.deleted_at = None
+
 
     def mark_deactivate_failed(self):
         """Azure 리소스 삭제가 실패하여 비활성화에 실패했음을 표시합니다."""

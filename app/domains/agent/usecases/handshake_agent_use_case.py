@@ -22,16 +22,23 @@ class HandshakeAgentUseCase:
                 status_code=404, detail=f"Tenant {request.tenant_id} not found"
             )
 
-        agent = await self.repository.get_agent(
+        agent = await self.repository.get_active_agent_by_client_id(
             tenant_id=request.tenant_id, agent_id=request.agent_id
         )
-        if agent and agent.is_same_version(request.agent_version):
+        if agent and agent.is_same_version(request.agent_version) and not agent.is_deleted():
             return AgentHandshakeResponse(
                 success=True,
                 message=f"Agent {request.agent_id} (v{request.agent_version}) is already registered",
             )
 
+        # 만약 에이전트가 존재하지만 이미 삭제(DELETED) 상태라면,
+        # 과거 이력을 보전하기 위해 기존 엔터티를 무시하고 새로 생성합니다. 
+        if agent and agent.is_deleted():
+            agent = None
+
         if agent:
+            agent.activate()
+            
             agent.update_version(request.agent_version)
             # Update all mutable metadata from the handshake
             agent.resource_group_name = request.resource_group_name

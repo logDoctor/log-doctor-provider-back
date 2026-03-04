@@ -4,16 +4,17 @@ from fastapi_restful.cbv import cbv
 
 from app.core.auth.guards import check_admin, check_tenant, get_current_identity
 from app.core.auth.models import Identity
+from app.core.routing import APIRouter
 
 from .dependencies import (
+    get_check_azure_status_use_case,
+    get_confirm_agent_deletion_use_case,
+    get_deactivate_agent_use_case,
     get_handshake_agent_use_case,
     get_list_agents_use_case,
     get_should_agent_run_use_case,
     get_trigger_agent_analysis_use_case,
     get_update_agent_use_case,
-    get_deactivate_agent_use_case,
-    get_check_azure_status_use_case,
-    get_confirm_agent_deletion_use_case,
 )
 from .schemas import (
     AgentDeactivateResponse,
@@ -39,8 +40,6 @@ from .usecases import (
     TriggerAgentAnalysisUseCase,
     UpdateAgentUseCase,
 )
-
-from app.core.routing import APIRouter
 
 router = APIRouter(prefix="/agents", tags=["Agent"])
 
