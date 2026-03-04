@@ -3,9 +3,16 @@ from fastapi import Depends
 from app.domains.tenant.dependencies import get_tenant_repository
 from app.domains.tenant.repository import TenantRepository
 from app.infra.db.cosmos import CosmosDB
+from app.infra.external.azure_resource_service import (
+    AzureResourceService,
+    AzureResourceServiceImpl,
+)
 
 from .repository import AgentRepository, AzureAgentRepository
 from .usecases import (
+    CheckAzureStatusUseCase,
+    ConfirmAgentDeletionUseCase,
+    DeactivateAgentUseCase,
     HandshakeAgentUseCase,
     ListAgentsUseCase,
     ShouldAgentRunUseCase,
@@ -17,6 +24,10 @@ from .usecases import (
 async def get_agent_repository() -> AgentRepository:
     container = await CosmosDB.get_container("agents")
     return AzureAgentRepository(container)
+
+
+def get_azure_resource_service() -> AzureResourceService:
+    return AzureResourceServiceImpl()
 
 
 def get_handshake_agent_use_case(
@@ -46,3 +57,24 @@ def get_update_agent_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
 ) -> UpdateAgentUseCase:
     return UpdateAgentUseCase(repository)
+
+
+def get_deactivate_agent_use_case(
+    repository: AgentRepository = Depends(get_agent_repository),
+    azure_resource_service: AzureResourceService = Depends(get_azure_resource_service),
+) -> DeactivateAgentUseCase:
+    return DeactivateAgentUseCase(repository, azure_resource_service)
+
+
+def get_check_azure_status_use_case(
+    repository: AgentRepository = Depends(get_agent_repository),
+    azure_resource_service: AzureResourceService = Depends(get_azure_resource_service),
+) -> CheckAzureStatusUseCase:
+    return CheckAzureStatusUseCase(repository, azure_resource_service)
+
+
+def get_confirm_agent_deletion_use_case(
+    repository: AgentRepository = Depends(get_agent_repository),
+) -> ConfirmAgentDeletionUseCase:
+    return ConfirmAgentDeletionUseCase(repository)
+

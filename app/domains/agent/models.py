@@ -19,6 +19,7 @@ class Agent:
     status: str
     analysis_schedule: str
     last_handshake_at: str
+    deleted_at: str | None = None
 
     @staticmethod
     def create(
@@ -52,6 +53,7 @@ class Agent:
             status="INITIALIZING",
             analysis_schedule="0 0 * * *",  # Default: 매일 자정
             last_handshake_at=now,
+            deleted_at=None,
         )
 
     @staticmethod
@@ -73,11 +75,12 @@ class Agent:
             status=data.get("status", "UNKNOWN"),
             analysis_schedule=data.get("analysis_schedule", "0 0 * * *"),
             last_handshake_at=data["last_handshake_at"],
+            deleted_at=data.get("deleted_at"),
         )
 
     def to_dict(self) -> dict:
         """Cosmos DB 저장을 위한 사전 형태로 변환합니다."""
-        return {
+        result = {
             "id": self.id,
             "tenant_id": self.tenant_id,
             "subscription_id": self.subscription_id,
@@ -94,6 +97,9 @@ class Agent:
             "analysis_schedule": self.analysis_schedule,
             "last_handshake_at": self.last_handshake_at,
         }
+        if self.deleted_at:
+            result["deleted_at"] = self.deleted_at
+        return result
 
     def is_same_version(self, version: str) -> bool:
         """버전 정보가 일치하는지 확인합니다."""
@@ -126,3 +132,16 @@ class Agent:
             self.last_handshake_at = datetime.now(UTC).isoformat()
 
         return updated_fields
+
+    def deactivate(self):
+        """에이전트를 비활성화 상태로 전환합니다. (Azure 리소스 삭제 진행 중)"""
+        self.status = "DEACTIVATING"
+
+    def confirm_deletion(self):
+        """Azure 리소스 삭제가 확인된 후 최종 삭제 상태로 전환합니다."""
+        self.status = "DELETED"
+        self.deleted_at = datetime.now(UTC).isoformat()
+
+    def mark_deactivate_failed(self):
+        """Azure 리소스 삭제가 실패하여 비활성화에 실패했음을 표시합니다."""
+        self.status = "DEACTIVATE_FAILED"

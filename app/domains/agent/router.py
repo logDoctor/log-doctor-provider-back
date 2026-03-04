@@ -1,4 +1,5 @@
 from fastapi import Depends, Request
+from fastapi.responses import JSONResponse
 from fastapi_restful.cbv import cbv
 
 from app.core.auth.guards import check_admin, check_tenant, get_current_identity
@@ -10,8 +11,12 @@ from .dependencies import (
     get_should_agent_run_use_case,
     get_trigger_agent_analysis_use_case,
     get_update_agent_use_case,
+    get_deactivate_agent_use_case,
+    get_check_azure_status_use_case,
+    get_confirm_agent_deletion_use_case,
 )
 from .schemas import (
+    AgentDeactivateResponse,
     AgentHandshakeRequest,
     AgentHandshakeResponse,
     AgentPollingResponse,
@@ -20,9 +25,14 @@ from .schemas import (
     AgentTriggerResponse,
     AgentUpdateRequest,
     AgentUpdateResponse,
+    AzureStatusResponse,
+    ConfirmDeletionResponse,
     PaginatedAgentResponse,
 )
 from .usecases import (
+    CheckAzureStatusUseCase,
+    ConfirmAgentDeletionUseCase,
+    DeactivateAgentUseCase,
     HandshakeAgentUseCase,
     ListAgentsUseCase,
     ShouldAgentRunUseCase,
@@ -44,12 +54,18 @@ class AgentRouter:
         should_run_use_case: ShouldAgentRunUseCase = Depends(get_should_agent_run_use_case),
         trigger_use_case: TriggerAgentAnalysisUseCase = Depends(get_trigger_agent_analysis_use_case),
         update_use_case: UpdateAgentUseCase = Depends(get_update_agent_use_case),
+        deactivate_use_case: DeactivateAgentUseCase = Depends(get_deactivate_agent_use_case),
+        check_azure_status_use_case: CheckAzureStatusUseCase = Depends(get_check_azure_status_use_case),
+        confirm_deletion_use_case: ConfirmAgentDeletionUseCase = Depends(get_confirm_agent_deletion_use_case),
     ):
         self.handshake_use_case = handshake_use_case
         self.list_use_case = list_use_case
         self.should_run_use_case = should_run_use_case
         self.trigger_use_case = trigger_use_case
         self.update_use_case = update_use_case
+        self.deactivate_use_case = deactivate_use_case
+        self.check_azure_status_use_case = check_azure_status_use_case
+        self.confirm_deletion_use_case = confirm_deletion_use_case
 
     @router.get("/", response_model=PaginatedAgentResponse)
     async def list_agents(
@@ -125,3 +141,59 @@ class AgentRouter:
         """
         # 경로의 agent_id를 요청 데이터에 맞춤
         return await self.update_use_case.execute(request)
+
+    @router.delete("/{client_agent_id}", response_model=AgentDeactivateResponse)
+    async def deactivate_agent(
+        self,
+        client_agent_id: str,
+        tenant_id: str,
+        delete_azure_resources: bool = True,
+        identity: Identity = Depends(get_current_identity),
+        is_admin: bool = Depends(check_admin),
+    ):
+        """
+        에이전트를 비활성화합니다. (운영자 전용)
+        Azure 리소스 그룹 삭제 요청을 보내고 DEACTIVATING 상태로 전환합니다.
+        """
+        result = await self.deactivate_use_case.execute(
+            identity=identity,
+            tenant_id=tenant_id,
+            agent_id=client_agent_id,
+            delete_azure_resources=delete_azure_resources,
+        )
+        status_code = 202 if result["success"] else 500
+        return JSONResponse(content=result, status_code=status_code)
+
+    @router.get("/{client_agent_id}/azure-status", response_model=AzureStatusResponse)
+    async def check_azure_status(
+        self,
+        client_agent_id: str,
+        tenant_id: str,
+        identity: Identity = Depends(get_current_identity),
+        is_admin: bool = Depends(check_admin),
+    ):
+        """
+        에이전트의 Azure 리소스 그룹 존재 여부를 확인합니다. (순수 읽기, 운영자 전용)
+        Managed Identity를 사용합니다.
+        """
+        return await self.check_azure_status_use_case.execute(
+            tenant_id=tenant_id,
+            agent_id=client_agent_id,
+        )
+
+    @router.post("/{client_agent_id}/confirm-deletion", response_model=ConfirmDeletionResponse)
+    async def confirm_deletion(
+        self,
+        client_agent_id: str,
+        tenant_id: str,
+        identity: Identity = Depends(get_current_identity),
+        is_admin: bool = Depends(check_admin),
+    ):
+        """
+        Azure 리소스 삭제 확인 후 에이전트를 최종 DELETED 상태로 전환합니다. (운영자 전용)
+        """
+        return await self.confirm_deletion_use_case.execute(
+            tenant_id=tenant_id,
+            agent_id=client_agent_id,
+        )
+

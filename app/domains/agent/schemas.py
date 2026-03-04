@@ -74,3 +74,20 @@ class PaginatedAgentResponse(BaseModel):
     total_count: int
     skip: int
     limit: int
+
+
+class AgentDeactivateResponse(BaseModel):
+    success: bool
+    message: str
+    azure_status: str  # 'ACCEPTED', 'NOT_FOUND', 'FAILED'
+
+
+class AzureStatusResponse(BaseModel):
+    exists: bool
+    resource_group_name: str
+
+
+class ConfirmDeletionResponse(BaseModel):
+    confirmed: bool
+    message: str
+

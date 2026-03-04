@@ -44,12 +44,14 @@ class AzureAgentRepository(AgentRepository):
         self, tenant_id: str | None, skip: int = 0, limit: int = 10
     ) -> tuple[list[Agent], int]:
         # 1. 기본 쿼리 및 파라미터 설정
-        where_clause = ""
+        where_clauses = ["c.status != 'DELETED'"]
         parameters = []
 
         if tenant_id:
-            where_clause = "WHERE c.tenant_id = @tenant_id"
+            where_clauses.append("c.tenant_id = @tenant_id")
             parameters.append({"name": "@tenant_id", "value": tenant_id})
+
+        where_clause = "WHERE " + " AND ".join(where_clauses)
 
         # 2. 전체 개수 조회
         count_query = f"SELECT VALUE COUNT(1) FROM c {where_clause}"
