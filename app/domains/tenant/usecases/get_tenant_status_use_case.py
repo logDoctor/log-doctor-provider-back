@@ -1,5 +1,5 @@
 from app.core.auth.models import Identity
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import NotFoundException, UnauthorizedException
 from app.core.auth.services.auth_provider import TokenProvider
 from app.domains.tenant.repository import TenantRepository
 from app.domains.tenant.schemas import GetTenantStatusResponse
@@ -19,7 +19,14 @@ class GetTenantStatusUseCase:
         tenantEntity = await self.tenant_repository.get_by_id(tenant_id)
         
         if not tenantEntity:
-            raise NotFoundException("TENANT_NOT_REGISTERED|등록된 테넌트 정보가 없습니다.")
+            has_privileged_role = identity.is_global_admin or (identity.roles and len(identity.roles) > 0)
+            if not has_privileged_role:
+                raise UnauthorizedException(
+                    "NOT_ASSIGNED|ACCESS_DENIED|로그닥터 앱을 사용할 권한이 없습니다. "
+                    "조직 관리자에게 문의하여 '앱 역할'을 할당받으세요."
+                )
+            
+            raise NotFoundException("TENANT_NOT_REGISTERED|등록된 조직 정보가 없습니다. 조직 관리자 계정으로 로그인이 필요합니다.")
 
         return GetTenantStatusResponse(
             tenant_id=tenantEntity.tenant_id,
