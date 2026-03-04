@@ -91,3 +91,18 @@ class ConfirmDeletionResponse(BaseModel):
     confirmed: bool
     message: str
 
+
+class AgentUpdateDeployRequest(BaseModel):
+    """에이전트 OTA 업데이트 요청"""
+    tenant_id: str
+    target_version: str = "latest"
+
+
+class AgentUpdateDeployResponse(BaseModel):
+    """에이전트 OTA 업데이트 응답"""
+    success: bool
+    message: str
+    current_version: str
+    target_version: str
+    arm_status: str | None = None
+

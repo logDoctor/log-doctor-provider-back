@@ -1,5 +1,7 @@
 from fastapi import Depends
 
+from app.domains.package.dependencies import get_agent_package_repository
+from app.domains.package.repository import AgentPackageRepository
 from app.domains.tenant.dependencies import get_tenant_repository
 from app.domains.tenant.repository import TenantRepository
 from app.infra.db.cosmos import CosmosDB
@@ -13,6 +15,7 @@ from .usecases import (
     DeactivateAgentUseCase,
     HandshakeAgentUseCase,
     ListAgentsUseCase,
+    RequestAgentUpdateUseCase,
     ShouldAgentRunUseCase,
     TriggerAgentAnalysisUseCase,
     UpdateAgentUseCase,
@@ -74,4 +77,12 @@ def get_confirm_agent_deletion_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
 ) -> ConfirmAgentDeletionUseCase:
     return ConfirmAgentDeletionUseCase(repository)
+
+
+def get_request_agent_update_use_case(
+    repository: AgentRepository = Depends(get_agent_repository),
+    package_repository: AgentPackageRepository = Depends(get_agent_package_repository),
+    azure_resource_service: AzureResourceService = Depends(get_azure_resource_service),
+) -> RequestAgentUpdateUseCase:
+    return RequestAgentUpdateUseCase(repository, package_repository, azure_resource_service)
 

@@ -12,6 +12,7 @@ from .dependencies import (
     get_deactivate_agent_use_case,
     get_handshake_agent_use_case,
     get_list_agents_use_case,
+    get_request_agent_update_use_case,
     get_should_agent_run_use_case,
     get_trigger_agent_analysis_use_case,
     get_update_agent_use_case,
@@ -24,6 +25,8 @@ from .schemas import (
     AgentResponse,
     AgentTriggerRequest,
     AgentTriggerResponse,
+    AgentUpdateDeployRequest,
+    AgentUpdateDeployResponse,
     AgentUpdateRequest,
     AgentUpdateResponse,
     AzureStatusResponse,
@@ -36,6 +39,7 @@ from .usecases import (
     DeactivateAgentUseCase,
     HandshakeAgentUseCase,
     ListAgentsUseCase,
+    RequestAgentUpdateUseCase,
     ShouldAgentRunUseCase,
     TriggerAgentAnalysisUseCase,
     UpdateAgentUseCase,
@@ -56,6 +60,7 @@ class AgentRouter:
         deactivate_use_case: DeactivateAgentUseCase = Depends(get_deactivate_agent_use_case),
         check_azure_status_use_case: CheckAzureStatusUseCase = Depends(get_check_azure_status_use_case),
         confirm_deletion_use_case: ConfirmAgentDeletionUseCase = Depends(get_confirm_agent_deletion_use_case),
+        request_update_use_case: RequestAgentUpdateUseCase = Depends(get_request_agent_update_use_case),
     ):
         self.handshake_use_case = handshake_use_case
         self.list_use_case = list_use_case
@@ -65,6 +70,7 @@ class AgentRouter:
         self.deactivate_use_case = deactivate_use_case
         self.check_azure_status_use_case = check_azure_status_use_case
         self.confirm_deletion_use_case = confirm_deletion_use_case
+        self.request_update_use_case = request_update_use_case
 
     @router.get("/", response_model=PaginatedAgentResponse)
     async def list_agents(
@@ -195,5 +201,28 @@ class AgentRouter:
         return await self.confirm_deletion_use_case.execute(
             tenant_id=tenant_id,
             agent_id=client_agent_id,
+        )
+
+    @router.post("/{client_agent_id}/request-update", response_model=AgentUpdateDeployResponse)
+    async def request_update(
+        self,
+        fastapi_req: Request,
+        client_agent_id: str,
+        request: AgentUpdateDeployRequest,
+        identity: Identity = Depends(get_current_identity),
+        is_admin: bool = Depends(check_admin),
+    ):
+        """
+        배포된 에이전트의 OTA 업데이트를 요청합니다. (운영자 전용)
+        Azure ARM API로 Function App의 WEBSITE_RUN_FROM_PACKAGE 설정을 변경하여
+        에이전트가 새 패키지로 자동 재시작되도록 합니다.
+        """
+        base_url = str(fastapi_req.base_url).rstrip("/")
+        return await self.request_update_use_case.execute(
+            identity=identity,
+            tenant_id=request.tenant_id,
+            agent_id=client_agent_id,
+            target_version=request.target_version,
+            base_url=base_url,
         )
 
