@@ -1,4 +1,3 @@
-from typing import Any, Union
 from app.core.auth.services.jwt_service import JwtService
 from abc import ABC, abstractmethod
 
@@ -31,9 +30,9 @@ class MockTokenProvider(TokenProvider):
 class EntraIDTokenProvider(TokenProvider):
     """Azure Entra ID를 사용한 토큰 발급 구현체"""
 
-    def __init__(self, jwt_service: JwtService, client_credential: str | dict | Any):
+    def __init__(self, jwt_service: JwtService, client_secret: str):
         self.jwt_service = jwt_service
-        self.client_credential = client_credential
+        self._client_secret = client_secret
 
     async def get_obo_token(self, sso_token: str) -> str:
         payload = self.jwt_service.extract_payload(sso_token)
@@ -44,12 +43,12 @@ class EntraIDTokenProvider(TokenProvider):
 
         tid = payload.get("tid") or "common"
         authority = f"https://login.microsoftonline.com/{tid}"
-        scopes = ["https://management.azure.com/user_impersonation"] 
+        scopes = ["https://management.azure.com/user_impersonation"]
 
         app = msal.ConfidentialClientApplication(
             settings.CLIENT_ID,
             authority=authority,
-            client_credential=self.client_credential,
+            client_credential=self._client_secret,
         )
 
         try:
