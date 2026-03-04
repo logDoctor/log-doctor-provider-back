@@ -59,6 +59,7 @@ class FileSystemAgentPackageRepository(AgentPackageRepository):
             filename=filename,
             size=stats.st_size,
             url=f"/api/v1/packages/download/{filename}",
+            version=PackageInfo.parse_version(filename),
         )
 
     async def list_all(self) -> list[PackageInfo]:
@@ -84,6 +85,7 @@ class FileSystemAgentPackageRepository(AgentPackageRepository):
             filename=filename,
             size=stats.st_size,
             url=f"/api/v1/packages/download/{filename}",
+            version=PackageInfo.parse_version(filename),
         )
 
     def _save_sync(self, path: str, content):
@@ -103,8 +105,10 @@ class FileSystemAgentPackageRepository(AgentPackageRepository):
         filenames = [f for f in os.listdir(self.packages_dir) if f.endswith(".zip")]
         if not filenames:
             return None
-        latest_filename = max(filenames)
-        return self._get_package_info(latest_filename)
+        # semver 기준 최신 버전 선택
+        packages = [self._get_package_info(f) for f in filenames]
+        packages.sort(key=lambda p: [int(x) for x in p.version.split(".") if x.isdigit()], reverse=True)
+        return packages[0]
 
     def _get_by_version_sync(self, version: str) -> PackageInfo | None:
         if not os.path.exists(self.packages_dir):
@@ -163,6 +167,7 @@ class BlobStorageAgentPackageRepository(AgentPackageRepository):
             filename=filename,
             size=properties.size,
             url=f"/api/v1/packages/download/{filename}",
+            version=PackageInfo.parse_version(filename),
         )
 
     async def list_all(self) -> list[PackageInfo]:
@@ -175,6 +180,7 @@ class BlobStorageAgentPackageRepository(AgentPackageRepository):
                         filename=blob.name,
                         size=blob.size,
                         url=f"/api/v1/packages/download/{blob.name}",
+                        version=PackageInfo.parse_version(blob.name),
                     )
                 )
         packages.sort(key=lambda x: x.filename, reverse=True)
@@ -182,7 +188,11 @@ class BlobStorageAgentPackageRepository(AgentPackageRepository):
 
     async def get_latest(self) -> PackageInfo | None:
         packages = await self.list_all()
-        return packages[0] if packages else None
+        if not packages:
+            return None
+        # semver 기준 최신 버전 선택
+        packages.sort(key=lambda p: [int(x) for x in p.version.split(".") if x.isdigit()], reverse=True)
+        return packages[0]
 
     async def get_by_version(self, version: str) -> PackageInfo | None:
         container_client = await self._get_container_client()
@@ -192,6 +202,7 @@ class BlobStorageAgentPackageRepository(AgentPackageRepository):
                     filename=blob.name,
                     size=blob.size,
                     url=f"/api/v1/packages/download/{blob.name}",
+                    version=PackageInfo.parse_version(blob.name),
                 )
         return None
 

@@ -1,3 +1,5 @@
+import re
+
 from pydantic import BaseModel
 
 
@@ -7,3 +9,10 @@ class PackageInfo(BaseModel):
     filename: str
     size: int
     url: str
+    version: str = "unknown"
+
+    @staticmethod
+    def parse_version(filename: str) -> str:
+        """파일명에서 버전을 추출합니다. (예: agent-v1.1.0.zip → 1.1.0)"""
+        match = re.search(r"agent-v(.+)\.zip$", filename)
+        return match.group(1) if match else "unknown"
