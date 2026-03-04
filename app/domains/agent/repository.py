@@ -46,8 +46,7 @@ class AzureAgentRepository(AgentRepository):
         # 동일한 agent_id 중 최신 레코드(삭제되지 않은 것 우선) 1건
         query = (
             "SELECT * FROM c "
-            "WHERE c.tenant_id = @tenant_id AND c.agent_id = @agent_id "
-            "ORDER BY c.status ASC, c._ts DESC" # 'ACTIVE'가 'DELETED'보다 앞에 옴
+            "WHERE c.tenant_id = @tenant_id AND c.agent_id = @agent_id"
         )
         parameters = [
             {"name": "@tenant_id", "value": tenant_id},
@@ -60,9 +59,15 @@ class AzureAgentRepository(AgentRepository):
             partition_key=tenant_id
         )
         
-        async for item in items:
-            return item # Decorator will handle mapping to Agent
-        return None
+        results = [item async for item in items]
+        if not results:
+            return None
+            
+        # In-memory sorting: ACTIVE < DELETED, and newer _ts first
+        # status ASC (ACTIVE, INITIALIZING, DEACTIVATING, DELETED, ...)
+        results.sort(key=lambda x: (x.get("status", "ZZZ"), -x.get("_ts", 0)))
+        
+        return results[0] # Decorator will handle mapping to Agent
 
     async def upsert_agent(self, item: dict) -> Agent:
         return await self.container.upsert_item(item)
