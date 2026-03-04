@@ -3,10 +3,8 @@ from fastapi import Depends
 from app.domains.tenant.dependencies import get_tenant_repository
 from app.domains.tenant.repository import TenantRepository
 from app.infra.db.cosmos import CosmosDB
-from app.infra.external.azure_resource_service import (
-    AzureResourceService,
-    AzureResourceServiceImpl,
-)
+from app.infra.external.azure.dependencies import get_azure_resource_service
+from app.infra.external.azure.azure_resource_service import AzureResourceService
 
 from .repository import AgentRepository, AzureAgentRepository
 from .usecases import (
@@ -26,8 +24,7 @@ async def get_agent_repository() -> AgentRepository:
     return AzureAgentRepository(container)
 
 
-def get_azure_resource_service() -> AzureResourceService:
-    return AzureResourceServiceImpl()
+# Infra dependencies are now imported from app.infra.external.azure.dependencies
 
 
 def get_handshake_agent_use_case(

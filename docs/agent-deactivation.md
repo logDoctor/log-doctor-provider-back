@@ -12,7 +12,36 @@
 
 ---
 
-## 2. API 설계
+## 2. 시스템 구성
+
+```text
+ ┌──────────────────────────────────────────────────────────────────────┐
+ │                   AGENT DEACTIVATION ARCHITECTURE                    │
+ └──────────────────────────────────────────────────────────────────────┘
+
+  [ 운영자 ]         [ Provider Backend ]        [ Customer Azure ]
+      │                      │                          │
+ (1) 제거 요청 ────────────► │                          │
+      │                      │ ─── OBO Token ──────────►│
+      │                      │   DELETE /resourcegroups  │
+      │                      │◄──── 202 Accepted ───────│
+      │◄─── 202 즉시 반환 ── │                          │
+      │                      │                          │
+  [DEACTIVATING]             │     [리소스 삭제 진행]    │
+      │                      │                          │
+ (2) 상태 폴링 ────────────► │                          │
+      │                      │ ─── Managed Identity ───►│
+      │                      │   HEAD /resourcegroups    │
+      │◄─ { exists: false }─ │◄──── 404 Not Found ─────│
+      │                      │                          │
+ (3) 삭제 확정 ────────────► │                          │
+      │                      │ ─── DB: DELETED ──────── │
+      │◄── { confirmed } ─── │                          │
+```
+
+---
+
+## 3. API 설계
 
 | API                                | 메서드 | 역할                                   | 인증             |
 | :--------------------------------- | :----- | :------------------------------------- | :--------------- |
@@ -22,49 +51,89 @@
 
 ### 토큰 전략
 
-- **DELETE (Phase 1)**: 사용자 세션이 유효한 시점에 OBO 토큰을 교환하여 ARM API 호출
-- **GET/POST (Phase 2)**: Managed Identity로 수행 — 사용자 세션과 무관하게 동작
-
----
-
-## 3. 상태 전이
-
-```
-ACTIVE / INITIALIZING
-    ↓ DELETE API (Phase 1)
-DEACTIVATING
-    ↓ POST confirm-deletion (Phase 2, Azure 삭제 확인 후)
-DELETED (soft-delete, deleted_at 기록)
-
-DEACTIVATING → DEACTIVATE_FAILED (Azure 삭제 에러 시)
-DEACTIVATE_FAILED → DEACTIVATING (재시도 시)
+```text
+┌────────────────────┐    ┌─────────────────┐    ┌──────────────────┐
+│   Phase 1 (DELETE) │    │  Phase 2a (GET)  │    │  Phase 2b (POST) │
+│                    │    │                  │    │                  │
+│  OBO Token 사용    │    │  Managed Identity│    │  Managed Identity│
+│  (사용자 세션 필요)│    │  (세션 불필요)   │    │  (세션 불필요)   │
+└────────────────────┘    └─────────────────┘    └──────────────────┘
 ```
 
 ---
 
-## 4. 처리 흐름
+## 4. 상태 전이
 
-### Phase 1: 삭제 요청
+```mermaid
+stateDiagram-v2
+    ACTIVE --> DEACTIVATING : DELETE API (Phase 1)
+    INITIALIZING --> DEACTIVATING : DELETE API (Phase 1)
+    DEACTIVATING --> DELETED : POST confirm-deletion (Phase 2)
+    DEACTIVATING --> DEACTIVATE_FAILED : Azure 삭제 에러
+    DEACTIVATE_FAILED --> DEACTIVATING : DELETE API 재호출
+```
 
-1. 운영자가 "에이전트 제거" 클릭 → 확인 Dialog
-2. `DELETE /v1/agents/{id}?tenant_id=...&delete_azure_resources=true`
-3. 백엔드: OBO 토큰 교환 → ARM API로 리소스 그룹 삭제 요청 (202 Accepted)
-4. 에이전트 상태 `DEACTIVATING` → DB 저장 → **즉시 202 반환**
+---
 
-### Phase 2: 삭제 확인
+## 5. 처리 흐름
 
-5. 프론트엔드: `DEACTIVATING` 감지 → 5초 간격으로 `GET /agents/{id}/azure-status` 폴링
-6. `{ exists: false }` 수신 → `POST /agents/{id}/confirm-deletion` 호출
-7. 에이전트 상태 `DELETED`, `deleted_at` 기록 → 목록에서 제외
+```mermaid
+sequenceDiagram
+    participant User as 운영자
+    participant FE as 프론트엔드
+    participant BE as 백엔드
+    participant DB as CosmosDB
+    participant Azure as ARM API
+
+    Note over User,Azure: Phase 1 — 삭제 요청
+    User->>FE: "에이전트 제거" 확인
+    FE->>BE: DELETE /agents/{id}
+    BE->>BE: OBO 토큰 교환
+    BE->>Azure: DELETE /resourcegroups/{rg}
+    Azure-->>BE: 202 Accepted
+    BE->>DB: status = "DEACTIVATING"
+    BE-->>FE: 202 반환
+    FE->>FE: "Azure 리소스 정리 중..." UI 표시
+
+    Note over User,Azure: Phase 2 — 프론트 주도 확인
+    loop 5초 간격 폴링
+        FE->>BE: GET /agents/{id}/azure-status
+        BE->>Azure: HEAD /resourcegroups/{rg} (Managed Identity)
+        Azure-->>BE: 200 (아직 존재)
+        BE-->>FE: { exists: true }
+    end
+
+    FE->>BE: GET /agents/{id}/azure-status
+    BE->>Azure: HEAD /resourcegroups/{rg} (Managed Identity)
+    Azure-->>BE: 404 Not Found
+    BE-->>FE: { exists: false }
+
+    FE->>BE: POST /agents/{id}/confirm-deletion
+    BE->>DB: status = "DELETED", deleted_at = now
+    BE-->>FE: { confirmed: true }
+    FE->>FE: 목록에서 제거
+```
 
 ### 방어 로직 (Safety Net)
 
-- 에이전트 목록 로드 시 `DEACTIVATING` 상태 에이전트가 있으면 자동으로 폴링 시작
-- 브라우저 닫고 재접속해도 삭제 확인이 자연스럽게 재개됨
+```mermaid
+flowchart LR
+    A["에이전트 목록 로드"] --> B{"DEACTIVATING\n에이전트 존재?"}
+    B -->|Yes| C["자동 폴링 시작\n(azure-status)"]
+    B -->|No| D["정상 표시"]
+    C --> E{"exists: false?"}
+    E -->|Yes| F["confirm-deletion\n자동 호출"]
+    E -->|No| G["5초 후 재확인"]
+    G --> C
+    F --> H["목록 갱신"]
+```
+
+- 브라우저를 닫고 재접속해도 삭제 확인이 자연스럽게 재개됨
+- 다른 세션에서 목록을 열어도 동일하게 동작
 
 ---
 
-## 5. 실패 시나리오 및 복구
+## 6. 실패 시나리오 및 복구
 
 | 시나리오                         | 결과                | 복구 방법                              |
 | :------------------------------- | :------------------ | :------------------------------------- |
@@ -75,7 +144,7 @@ DEACTIVATE_FAILED → DEACTIVATING (재시도 시)
 
 ---
 
-## 6. 인프라 계층
+## 7. 인프라 계층
 
 ### AzureResourceService (Interface)
 

@@ -88,6 +88,7 @@ class AzureResourceServiceImpl(AzureResourceService):
             f"?api-version={ARM_API_VERSION}"
         )
 
+        credential = None
         try:
             credential = DefaultAzureCredential()
             token = await credential.get_token("https://management.azure.com/.default")
@@ -98,7 +99,8 @@ class AzureResourceServiceImpl(AzureResourceService):
                     headers={"Authorization": f"Bearer {token.token}"},
                 )
 
-                exists = response.status_code == 200
+                # ARM API HEAD 요청은 200 또는 204가 올 수 있으므로 2xx를 성공으로 간주
+                exists = response.status_code < 400
                 logger.info(
                     "Resource group existence check",
                     resource_group_name=resource_group_name,
@@ -111,4 +113,5 @@ class AzureResourceServiceImpl(AzureResourceService):
             # 확인 실패 시 안전하게 '존재한다'로 간주 (삭제 확정 방지)
             return True
         finally:
-            await credential.close()
+            if credential:
+                await credential.close()

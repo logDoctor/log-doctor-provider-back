@@ -16,4 +16,4 @@
 ## 의존성 관계 (Dependencies)
 
 - **Repository**: `AzureSubscriptionRepository`
-- **Infra**: `app.infra.external.azure_client` (Azure ARM REST API 호출)
+- **Infra**: `app.infra.external.azure.azure_client` (Azure ARM REST API 호출)

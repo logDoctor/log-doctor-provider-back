@@ -4,7 +4,7 @@ from app.core.auth import get_obo_access_token
 from app.core.auth.models import Identity
 from app.core.exceptions import NotFoundException
 from app.domains.agent.repository import AgentRepository
-from app.infra.external.azure_resource_service import AzureResourceService
+from app.infra.external.azure.azure_resource_service import AzureResourceService
 
 logger = structlog.get_logger()
 

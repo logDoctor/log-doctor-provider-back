@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from app.infra.external.azure_client import AzureRestClient
+from app.infra.external.azure.azure_client import AzureRestClient
 
 
 # 1. Interface
