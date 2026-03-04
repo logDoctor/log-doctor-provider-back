@@ -14,13 +14,27 @@ class GetSubscriptionsUseCase:
     async def execute(self, identity: Identity) -> SubscriptionListResponse:
         # 1. Authorization Check: 이 계정이 테넌트의 지정된 운영자인지 확인
         tenant = await self.tenant_repository.get_by_id(identity.tenant_id)
-        if not tenant or not tenant.registered_at:
-            raise NotFoundException("TENANT_NOT_REGISTERED|등록된 테넌트 정보가 없습니다.")
         
-        privileged_accounts_lower = [email.lower() for email in (tenant.privileged_accounts or [])]
+        # 🛡️ [SECURITY] 테넌트가 등록되지 않았더라도 '전역 관리자' 또는 '앱 역할(App Role) 보유자'라면 구독 조회를 허용합니다.
+        # 이를 통해 지정된 담당자가 관리자 동의 후 직접 설치를 진행할 수 있습니다.
+        is_registered = tenant and tenant.registered_at
+        
+        if not is_registered:
+            has_permission = identity.is_global_admin or len(identity.roles) > 0
+            if not has_permission:
+                raise UnauthorizedException(
+                    "ACCESS_DENIED|NOT_ASSIGNED|로그닥터 앱을 사용할 권한이 없습니다. "
+                    "조직 관리자에게 '엔터프라이즈 애플리케이션'에서 앱 역할을 할당받으세요."
+                )
+            # 권한이 있는 경우(GA 또는 Role 보유), 미등록 상태에서도 OBO 토큰 교환 단계로 넘어갑니다.
+            privileged_accounts_lower = []
+        else:
+            privileged_accounts_lower = [email.lower() for email in (tenant.privileged_accounts or [])]
+
         current_user_email = (identity.email or "").lower()
 
-        if not identity.is_global_admin and current_user_email not in privileged_accounts_lower:
+        # 이미 등록된 테넌트인 경우에만 권한 체크 수행 (미등록 상태의 전역 관리자는 위에서 통과됨)
+        if is_registered and not identity.is_global_admin and current_user_email not in privileged_accounts_lower:
             raise UnauthorizedException(f"ACCESS_DENIED|NOT_ASSIGNED|접근 권한이 없습니다. 운영자에게 권한 부여를 요청하세요. (지정된 운영자: {', '.join(tenant.privileged_accounts)})")
 
         # 2. OBO Token Exchange
