@@ -162,19 +162,4 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
   }
 }
 
-// ... (existing storageAccount, hostingPlan, functionApp resources above)
-
-// "Storage Blob Data Contributor" 역할 (Azure Built-in ID)
-var blobDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
-
-resource blobRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, functionApp.id, blobDataContributorRoleId)
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: blobDataContributorRoleId
-    principalId: functionApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
 output functionAppHostName string = functionApp.properties.defaultHostName

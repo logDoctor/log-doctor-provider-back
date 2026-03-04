@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "3850353795333518984"
+      "templateHash": "6432796417883312857"
     }
   },
   "parameters": {
@@ -97,7 +97,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "6118563110746159007"
+              "templateHash": "796049129548938898"
             }
           },
           "parameters": {
@@ -130,9 +130,6 @@
               "type": "string",
               "defaultValue": ""
             }
-          },
-          "variables": {
-            "blobDataContributorRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]"
           },
           "resources": [
             {
@@ -311,21 +308,6 @@
               "dependsOn": [
                 "[resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName')))]",
                 "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
-                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
-              ]
-            },
-            {
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
-              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), resourceId('Microsoft.Web/sites', parameters('functionAppName')), variables('blobDataContributorRoleId'))]",
-              "properties": {
-                "roleDefinitionId": "[variables('blobDataContributorRoleId')]",
-                "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2023-01-01', 'full').identity.principalId]",
-                "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
                 "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
               ]
             }
