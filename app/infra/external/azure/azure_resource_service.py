@@ -35,6 +35,24 @@ class AzureResourceService(ABC):
         """액세스 토큰으로 리소스 그룹의 존재 여부를 확인합니다."""
         pass
 
+    @abstractmethod
+    async def update_function_app_settings(
+        self,
+        access_token: str,
+        subscription_id: str,
+        resource_group_name: str,
+        function_app_name: str,
+        settings_to_update: dict[str, str],
+    ) -> str:
+        """Function App의 앱 설정을 변경합니다.
+
+        Returns:
+            'SUCCESS' - 설정 변경 성공
+            'NOT_FOUND' - Function App을 찾을 수 없음
+            'FAILED' - 설정 변경 실패
+        """
+        pass
+
 
 # 2. Implementation
 class AzureResourceServiceImpl(AzureResourceService):
@@ -118,3 +136,85 @@ class AzureResourceServiceImpl(AzureResourceService):
             logger.error("Resource group existence check error", error=str(e))
             # 확인 실패 시 안전하게 '존재한다'로 간주 (삭제 확정 방지)
             return True
+
+    async def update_function_app_settings(
+        self,
+        access_token: str,
+        subscription_id: str,
+        resource_group_name: str,
+        function_app_name: str,
+        settings_to_update: dict[str, str],
+    ) -> str:
+        """ARM REST API로 Function App의 앱 설정을 변경합니다."""
+        # 1. 기존 설정 조회
+        list_url = (
+            f"https://management.azure.com"
+            f"/subscriptions/{subscription_id}"
+            f"/resourceGroups/{resource_group_name}"
+            f"/providers/Microsoft.Web/sites/{function_app_name}"
+            f"/config/appsettings/list"
+            f"?api-version=2022-03-01"
+        )
+
+        try:
+            async with httpx.AsyncClient() as client:
+                # POST로 기존 설정 목록 조회
+                list_response = await client.post(
+                    list_url,
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+
+                if list_response.status_code == 404:
+                    logger.warning("Function App not found", function_app_name=function_app_name)
+                    return "NOT_FOUND"
+
+                if list_response.status_code != 200:
+                    logger.error(
+                        "Failed to list app settings",
+                        status_code=list_response.status_code,
+                        body=list_response.text,
+                    )
+                    return "FAILED"
+
+                current_settings = list_response.json().get("properties", {})
+
+                # 2. 새 설정 병합
+                current_settings.update(settings_to_update)
+
+                # 3. 설정 적용 (PUT)
+                put_url = (
+                    f"https://management.azure.com"
+                    f"/subscriptions/{subscription_id}"
+                    f"/resourceGroups/{resource_group_name}"
+                    f"/providers/Microsoft.Web/sites/{function_app_name}"
+                    f"/config/appsettings"
+                    f"?api-version=2022-03-01"
+                )
+
+                put_response = await client.put(
+                    put_url,
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "Content-Type": "application/json",
+                    },
+                    json={"properties": current_settings},
+                )
+
+                if put_response.status_code in (200, 201):
+                    logger.info(
+                        "Function App settings updated",
+                        function_app_name=function_app_name,
+                        updated_keys=list(settings_to_update.keys()),
+                    )
+                    return "SUCCESS"
+                else:
+                    logger.error(
+                        "Failed to update app settings",
+                        status_code=put_response.status_code,
+                        body=put_response.text,
+                    )
+                    return "FAILED"
+
+        except Exception as e:
+            logger.error("Function App settings update error", error=str(e))
+            return "FAILED"
