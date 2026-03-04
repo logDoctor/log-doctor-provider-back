@@ -60,8 +60,9 @@ class AzureAgentRepository(AgentRepository):
             partition_key=tenant_id
         )
         
-        agents = [Agent.from_dict(item) async for item in items]
-        return agents[0] if agents else None
+        async for item in items:
+            return item # Decorator will handle mapping to Agent
+        return None
 
     async def upsert_agent(self, item: dict) -> Agent:
         return await self.container.upsert_item(item)

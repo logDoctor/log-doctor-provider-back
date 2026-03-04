@@ -71,5 +71,5 @@ class HandshakeAgentUseCase:
 
         return AgentHandshakeResponse(
             success=True,
-            message=f"Agent {result.agent_id} (v{result.version}) successfully (Status: {result.status})",
+            message=f"Agent {result.agent_id} (v{result.version}) handshaked successfully (Status: {result.status})",
         )
