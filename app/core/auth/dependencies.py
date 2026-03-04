@@ -1,5 +1,3 @@
-import msal
-
 from app.core.config import settings
 from .services.admin_verifier import AdminVerifier
 from .services.auth_provider import EntraIDTokenProvider, MockTokenProvider, TokenProvider
@@ -38,13 +36,17 @@ def get_token_provider() -> TokenProvider:
     if settings.AUTH_METHOD == "mock":
         return MockTokenProvider()
 
-    client_credential = None
-    if settings.AUTH_METHOD == "secret":
-        client_credential = settings.CLIENT_SECRET
-    elif settings.AUTH_METHOD == "managed_identity":
-        client_credential = msal.SystemAssignedManagedIdentity()
+    # OBO 흐름은 AUTH_METHOD와 관계없이 항상 client_secret이 필요합니다.
+    # Managed Identity는 Azure 리소스(Cosmos DB, Blob 등) 접근용이며,
+    # MSAL OBO 교환에는 사용할 수 없습니다.
+    if not settings.CLIENT_SECRET:
+        raise RuntimeError(
+            "OBO 토큰 교환을 위해 CLIENT_SECRET 환경 변수가 필요합니다. "
+            "AUTH_METHOD가 'managed_identity'이더라도 OBO 흐름에서는 "
+            "client secret이 반드시 설정되어야 합니다."
+        )
 
     return EntraIDTokenProvider(
         jwt_service=get_jwt_service(),
-        client_credential=client_credential
+        client_secret=settings.CLIENT_SECRET,
     )
