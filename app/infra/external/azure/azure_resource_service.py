@@ -30,9 +30,9 @@ class AzureResourceService(ABC):
 
     @abstractmethod
     async def check_resource_group_exists(
-        self, subscription_id: str, resource_group_name: str
+        self, access_token: str, subscription_id: str, resource_group_name: str
     ) -> bool:
-        """Managed Identity로 리소스 그룹의 존재 여부를 확인합니다."""
+        """액세스 토큰으로 리소스 그룹의 존재 여부를 확인합니다."""
         pass
 
 
@@ -78,7 +78,7 @@ class AzureResourceServiceImpl(AzureResourceService):
             return "FAILED"
 
     async def check_resource_group_exists(
-        self, subscription_id: str, resource_group_name: str
+        self, access_token: str, subscription_id: str, resource_group_name: str
     ) -> bool:
         url = (
             f"https://management.azure.com"
@@ -87,28 +87,27 @@ class AzureResourceServiceImpl(AzureResourceService):
             f"?api-version={ARM_API_VERSION}"
         )
 
-        credential = None
         try:
-            credential = DefaultAzureCredential()
-            token = await credential.get_token("https://management.azure.com/.default")
-
             async with httpx.AsyncClient() as client:
                 response = await client.head(
                     url,
-                    headers={"Authorization": f"Bearer {token.token}"},
+                    headers={"Authorization": f"Bearer {access_token}"},
                 )
 
                 # ARM API HEAD 요청은 204나 200이 올 수 있음. 
-                # 404인 경우에만 "존재하지 않음"으로 간주하고,
-                # 401, 403 등 권한 문제나 일시적인 오류는 안전하게 "존재함(True)"으로 간주 (삭제 무단 확정 방지)
+                # 404인 경우에만 "존재하지 않음"으로 간주
                 exists = response.status_code != 404
+                
+                # 401, 403 등 권한 오류는 로깅하고 '존재함'으로 처리하여 오판 방지
                 if response.status_code >= 400 and response.status_code != 404:
                     logger.warning(
                         "Resource group check unexpected status",
                         status_code=response.status_code,
-                        resource_group_name=resource_group_name
+                        resource_group_name=resource_group_name,
+                        response_body=response.text if hasattr(response, 'text') else ""
                     )
-                logger.info(
+                
+                logger.debug(
                     "Resource group existence check",
                     resource_group_name=resource_group_name,
                     exists=exists,

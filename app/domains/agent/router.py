@@ -176,6 +176,7 @@ class AgentRouter:
         Managed Identity를 사용합니다.
         """
         return await self.check_azure_status_use_case.execute(
+            identity=identity,
             tenant_id=tenant_id,
             agent_id=client_agent_id,
         )
