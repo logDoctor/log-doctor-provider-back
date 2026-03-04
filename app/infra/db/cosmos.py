@@ -102,7 +102,9 @@ def cosmos_error_handler(func=None, *, map_to=None):
         async def wrapper(*args, **kwargs):
             try:
                 result = await f(*args, **kwargs)
-                if result and map_to and hasattr(map_to, "from_dict"):
+                # 🛡️ [FIX] 결과가 튜플(list_agents 등)인 경우 하위 항목에 대해 개별 맵핑을 수행하거나 
+                # 또는 레포지토리 구현체에서 직접 맵핑하도록 유도하기 위해 tuple인 경우 맵핑 스킵
+                if result and map_to and hasattr(map_to, "from_dict") and not isinstance(result, tuple):
                     if isinstance(result, list):
                         return [map_to.from_dict(item) for item in result]
                     return map_to.from_dict(result)

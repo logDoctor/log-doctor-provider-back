@@ -7,6 +7,7 @@ from app.infra.db.cosmos import CosmosDB
 from .repository import AgentRepository, AzureAgentRepository
 from .usecases import (
     HandshakeAgentUseCase,
+    ListAgentsUseCase,
     ShouldAgentRunUseCase,
     TriggerAgentAnalysisUseCase,
     UpdateAgentUseCase,
@@ -23,6 +24,12 @@ def get_handshake_agent_use_case(
     tenant_repository: TenantRepository = Depends(get_tenant_repository),
 ) -> HandshakeAgentUseCase:
     return HandshakeAgentUseCase(repository, tenant_repository)
+
+
+def get_list_agents_use_case(
+    repository: AgentRepository = Depends(get_agent_repository),
+) -> ListAgentsUseCase:
+    return ListAgentsUseCase(repository)
 
 
 def get_should_agent_run_use_case(

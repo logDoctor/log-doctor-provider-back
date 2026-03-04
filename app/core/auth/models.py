@@ -16,7 +16,10 @@ class Identity(BaseModel):
     """시스템 내 사용자나 기계의 신원 정보를 담는 모델"""
 
     type: IdentityType
-    id: str | None = None
+    id: str | None = None          # Entra ID Object ID (oid)
     name: str | None = None
+    email: str | None = None
     roles: list[str] = []
+    is_global_admin: bool = False  # wids 클레임 기반 전역 관리자 여부
     tenant_id: str | None = None
+    sso_token: str | None = None

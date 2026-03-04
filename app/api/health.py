@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from app.core.routing import APIRouter
 
 router = APIRouter(tags=["Health"])
 

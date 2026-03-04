@@ -7,15 +7,32 @@ class Agent:
     id: str  # tenant_id:agent_id format for CosmosDB
     tenant_id: str
     subscription_id: str
+    resource_group_name: str
+    function_app_name: str
+    location: str
+    environment: str
+    runtime_env: dict
+    client_ip: str
     agent_id: str
     version: str
+    capabilities: list[str]  # 에이전트의 주요 기능 (detect, filter, retain 등)
     status: str
     analysis_schedule: str
     last_handshake_at: str
 
     @staticmethod
     def create(
-        tenant_id: str, subscription_id: str, agent_id: str, version: str
+        tenant_id: str,
+        subscription_id: str,
+        resource_group_name: str,
+        function_app_name: str,
+        location: str,
+        environment: str,
+        runtime_env: dict,
+        client_ip: str,
+        agent_id: str,
+        version: str,
+        capabilities: list[str]
     ) -> "Agent":
         """최초 에이전트 도메인 객체를 생성하는 팩토리 메서드입니다."""
         now = datetime.now(UTC).isoformat()
@@ -23,8 +40,15 @@ class Agent:
             id=f"{tenant_id}:{agent_id}",
             tenant_id=tenant_id,
             subscription_id=subscription_id,
+            resource_group_name=resource_group_name,
+            function_app_name=function_app_name,
+            location=location,
+            environment=environment,
+            runtime_env=runtime_env,
+            client_ip=client_ip,
             agent_id=agent_id,
             version=version,
+            capabilities=capabilities,
             status="INITIALIZING",
             analysis_schedule="0 0 * * *",  # Default: 매일 자정
             last_handshake_at=now,
@@ -37,8 +61,15 @@ class Agent:
             id=data["id"],
             tenant_id=data["tenant_id"],
             subscription_id=data["subscription_id"],
+            resource_group_name=data["resource_group_name"],
+            function_app_name=data.get("function_app_name", ""),
+            location=data.get("location", ""),
+            environment=data.get("environment", ""),
+            runtime_env=data.get("runtime_env", {}),
+            client_ip=data.get("client_ip", ""),
             agent_id=data["agent_id"],
             version=data["version"],
+            capabilities=data.get("capabilities", []),
             status=data.get("status", "UNKNOWN"),
             analysis_schedule=data.get("analysis_schedule", "0 0 * * *"),
             last_handshake_at=data["last_handshake_at"],
@@ -50,8 +81,15 @@ class Agent:
             "id": self.id,
             "tenant_id": self.tenant_id,
             "subscription_id": self.subscription_id,
+            "resource_group_name": self.resource_group_name,
+            "function_app_name": self.function_app_name,
+            "location": self.location,
+            "environment": self.environment,
+            "runtime_env": self.runtime_env,
+            "client_ip": self.client_ip,
             "agent_id": self.agent_id,
             "version": self.version,
+            "capabilities": self.capabilities,
             "status": self.status,
             "analysis_schedule": self.analysis_schedule,
             "last_handshake_at": self.last_handshake_at,

@@ -1,10 +1,11 @@
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
+from app.core.routing import APIRouter
 
 router = APIRouter(prefix="/templates", tags=["Templates"])
 

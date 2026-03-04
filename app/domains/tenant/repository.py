@@ -30,5 +30,4 @@ class AzureTenantRepository(TenantRepository):
         return await self.container.read_item(item=tenant_id, partition_key=tenant_id)
 
     async def upsert(self, tenant: Tenant) -> Tenant:
-        await self.container.upsert_item(body=tenant.to_dict())
-        return tenant
+        return await self.container.upsert_item(body=tenant.to_dict())

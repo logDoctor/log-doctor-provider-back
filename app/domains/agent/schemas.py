@@ -1,10 +1,16 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AgentHandshakeRequest(BaseModel):
     tenant_id: str
     subscription_id: str
+    resource_group_name: str
+    function_app_name: str
+    location: str
+    environment: str
+    runtime_env: dict
     agent_id: str
+    capabilities: list[str] = []  # 에이전트가 수행 가능한 기능 목록 (예: detect, filter)
     agent_version: str = "1.0.0"
 
 
@@ -42,3 +48,29 @@ class AgentUpdateResponse(BaseModel):
     success: bool
     message: str
     updated_fields: list[str]
+
+
+class AgentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    agent_id: str
+    tenant_id: str
+    subscription_id: str
+    resource_group_name: str
+    function_app_name: str
+    location: str
+    environment: str
+    runtime_env: dict
+    client_ip: str
+    version: str
+    capabilities: list[str] = []  # 에이전트 기능 목록
+    status: str
+    analysis_schedule: str
+    last_handshake_at: str
+
+
+class PaginatedAgentResponse(BaseModel):
+    items: list[AgentResponse]
+    total_count: int
+    skip: int
+    limit: int

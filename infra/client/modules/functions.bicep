@@ -125,6 +125,22 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           value: providerClientId
         }
         {
+          name: 'RESOURCE_GROUP_NAME'
+          value: resourceGroup().name
+        }
+        {
+          name: 'FUNCTION_APP_NAME'
+          value: functionAppName
+        }
+        {
+          name: 'LOCATION'
+          value: location
+        }
+        {
+          name: 'ENVIRONMENT'
+          value: 'prod'  // TODO: Add environment parameter if needed, defaulting to prod for now
+        }
+        {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
           value: packageUrl
         }
@@ -143,21 +159,6 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       ]
     }
     httpsOnly: true
-  }
-}
-
-// ... (existing storageAccount, hostingPlan, functionApp resources above)
-
-// "Storage Blob Data Contributor" 역할 (Azure Built-in ID)
-var blobDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
-
-resource blobRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, functionApp.id, blobDataContributorRoleId)
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: blobDataContributorRoleId
-    principalId: functionApp.identity.principalId
-    principalType: 'ServicePrincipal'
   }
 }
 

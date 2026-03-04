@@ -6,101 +6,104 @@
 
 ## 1. 명시적 테넌트 등록 Flow (Explicit Registration)
 
-이전에 고려했던 JIT(Just-In-Time)나 백엔드 콜백(Callback) 연동의 복잡성을 제거하고, **프론트엔드가 주도하는(Orchestration) 명시적 호출 구조**로 아키텍처를 전면 개편했습니다.
-
 ### 📍 Architecture Sequence Diagram
+
+#### 시나리오 A: 신규 테넌트 온보딩 (최초 등록 및 승인)
 
 ```mermaid
 sequenceDiagram
     autonumber
 
-    participant P_Entra as ☁️ [공급사] Entra ID
-    participant SaaS as 🛠️ [구현-Back] API
-    participant Teams as 🛠️ [구현-Front] React
-    participant Agent as 🛠️ [구현-Infra] Agent
-    participant Admin as 🏢 [고객사] 관리자
-    participant C_Entra as 🏢 [고객사] Entra ID
-    participant ARM as 🏢 [고객사] ARM API
+    participant User as 👥 [고객사] 사용자
+    participant Admin as 🔑 [고객사] 전역 관리자
+    participant Teams as 🛠️ [구현-Front] React (Tab)
+    participant Entra as ☁️ Microsoft Entra ID (Azure)
+    participant API as 🛠️ [구현-Back] FastAPI
+    participant DB as 💾 Cosmos DB (DB)
 
-    Note over P_Entra, ARM: --- [0단계: 공급사 인프라 사전 설정 (코드 X)] ---
-    P_Entra->>P_Entra: 앱 등록 (Multi-tenant, API 권한 설정)
-    P_Entra->>SaaS: Client ID / Secret 발급 후 .env에 주입
+    Note over User, DB: --- [1단계: SSO 인증 및 상태 확인] ---
+    User->>Teams: 앱 실행 (Tab 접속)
+    Teams->>Entra: getAuthToken() (Silent SSO Attempt)
+    Entra-->>Teams: SSO Token 발급
 
-    Note over P_Entra, ARM: --- [1단계: 접속 및 고객사 연동 (Admin Consent & Tenant Registration)] ---
-    Admin->>Teams: 앱 실행 (Tab 접속)
+    Note over User, DB: --- [2단계: 백엔드 검증 (OBO & DB Check)] ---
+    Teams->>API: GET /api/v1/tenants/me (Auth: SSO Token)
+    API->>Entra: OBO 토큰 교환 시도
 
-    Note right of Teams: 🛠️ [프론트 구현]: getAuthToken() 호출
-    Teams->>C_Entra: Silent SSO 토큰 요청
+    alt 앱 미동의 상태 (CONSENT_REQUIRED)
+        Entra-->>API: 403 Forbidden (OBO Failed)
+        API-->>Teams: 401/403 AUTH_REQUIRED / CONSENT_REQUIRED
+        Teams->>User: "⚠️ 권한 승인 필요" 안내 UI 노출
+    else 관리자 앱 동의는 완료, 하지만 미가입된 상태 (TENANT_NOT_REGISTERED)
+        Entra-->>API: OBO Token 교환 성공
+        API->>DB: 테넌트 조회
+        DB-->>API: Not Found
+        API-->>Teams: 404 TENANT_NOT_REGISTERED
 
-    alt 최초 접속 (권한 미승인 상태)
-        C_Entra-->>Teams: Error: Consent Required
-        Note right of Teams: 🛠️ [프론트 구현]: authenticate() 팝업 폴백 로직
-        Teams->>Admin: 팝업창(Interactive Login) 표시
-        Admin->>C_Entra: 조직 전체를 대신하여 '동의(Consent)' 클릭
-        C_Entra-->>Teams: SSO 토큰 (JWT) 반환
-    else 기존 사용자 (승인 완료 상태)
-        C_Entra-->>Teams: SSO 토큰 (JWT) 즉시 반환 (Silent)
+        alt 일반 로그인(자동) 토큰인 경우
+            Teams->>User: "⚠️ 관리자 권한 승인 및 등록 필요" 에러 및 진입 버튼 노출
+        else 수동 관리자 로그인 팝업(authenticate) 완료 토큰인 경우
+            Teams->>Admin: [🧩 운영자 지정 및 앱 등록] 폼 노출
+        end
     end
 
-    Note right of Teams: 🛠️ [프론트 구현]: Tenant 등록 API 명시적 호출
-    Teams->>SaaS: SSO 토큰 첨부 (POST /tenants)
-    Note left of SaaS: 🛠️ [백엔드 구현]: DB 확인 후 신규 upsert (기존 회원은 409 반환)
-    alt 기존 등록 테넌트
-        SaaS-->>Teams: 등록 실패 응답 (409 Conflict)
-        Note right of Teams: 🛠️ [프론트 구현]: 409 에러 무시 후 다음 단계 속행
-    else 신규 테넌트
-        SaaS-->>Teams: 등록 성공 응답 (200 OK)
-    end
+    Note over Admin, DB: --- [3단계: 테넌트 명시적 가입(Register)] ---
+    User->>Teams: [관리자 권한 동의 및 등록] 버튼 클릭 -> authenticate()
+    Teams->>Entra: Microsoft 로그인 팝업 노출 (admin_consent=true)
+    Entra-->>Teams: 수동 관리자 토큰 획득 (SessionStorage 저장)
+    Note over Teams: (재초기화 및 2단계를 거쳐 미가입 분기 폼 화면으로 진입)
+    Admin->>Teams: 초기 운영자(Operators) 지정 후 [🚀 등록 시작] 클릭
+    Teams->>API: POST /api/v1/tenants/ { privileged_accounts: [...] }
+    API->>API: SSO 토큰에서 tenant_id 추출
+    API->>DB: 테넌트 레코드 생성 및 권한 그룹 부여 (Commit)
+    API-->>Teams: 201 Created
+    Teams->>Admin: Step 2: 구독 선택 화면으로 이동 🦾
+```
 
-    Note right of Teams: 🛠️ [프론트 구현]: 구독 조회 API 호출
-    Teams->>SaaS: SSO 토큰 전달 (GET /subscriptions)
+#### 시나리오 B: 기존 등록 테넌트 접속 (정상 서비스 이용)
 
-    Note over P_Entra, ARM: --- [2단계: 구독 목록 조회 (OBO Flow)] ---
-    Note left of SaaS: 🛠️ [백엔드 구현]: MSAL 라이브러리로 OBO 토큰 교환
-    SaaS->>P_Entra: OBO 토큰 교환 요청 (Client Secret + SSO 토큰)
-    P_Entra-->>SaaS: 고객사 ARM 접근용 Access Token 발급
+```mermaid
+sequenceDiagram
+    autonumber
 
-    Note left of SaaS: 🛠️ [백엔드 구현]: ARM REST API 호출
-    SaaS->>ARM: GET /subscriptions 호출 (Bearer {ARM_Token})
-    ARM-->>SaaS: 구독 리스트 반환
-    SaaS-->>Teams: 도메인 모델로 변환하여 응답
+    participant User as 👥 [고객사] 사용자 (운영자/일반)
+    participant Teams as 🛠️ [구현-Front] React (Tab)
+    participant Entra as ☁️ Microsoft Entra ID (Azure)
+    participant API as 🛠️ [구현-Back] FastAPI
+    participant DB as 💾 Cosmos DB (DB)
 
-    Note over P_Entra, ARM: --- [3단계: 자동 배포 실행 (Portal Handoff)] ---
-    Admin->>Teams: 특정 구독 선택 후 [설치] 클릭
+    Note over User, DB: --- [1단계: SSO 인증] ---
+    User->>Teams: 앱 실행 (Tab 접속)
+    Teams->>Entra: getAuthToken() (Silent SSO)
+    Entra-->>Teams: SSO Token 발급
 
-    Note right of Teams: 🛠️ [프론트 구현]: Bicep URL + Webhook 파라미터 창 띄우기
-    Teams->>Admin: Azure Portal 커스텀 배포 화면 리다이렉트
-    Admin->>ARM: Portal에서 템플릿 검토 후 [만들기] 클릭
-    ARM-->>Agent: Function App 리소스 생성
+    Note over User, DB: --- [2단계: 백엔드 검증 및 데이터 로드] ---
+    Teams->>API: GET /api/v1/tenants/me
+    API->>Entra: OBO 성공
+    API->>DB: 테넌트/구독 정보 로드
+    API-->>Teams: { tenant_id, registered_at, privileged_accounts }
 
-    Note over P_Entra, ARM: --- [4단계: 배포 완료 알림 (Handshake & Webhook)] ---
-    Note right of Agent: 🛠️ [에이전트 구현]: Bicep 템플릿 및 기동 시 Webhook 발송
-    Agent->>SaaS: POST /agents/webhook (또는 /agents/handshake)
-
-    Note left of SaaS: 🛠️ [백엔드 구현]: 웹훅 수신 API 및 DB 상태 업데이트
-    SaaS->>SaaS: DB에 "Active" 상태 업데이트
-
-    loop 상태 확인
-        Note right of Teams: 🛠️ [프론트 구현]: 상태 폴링(Polling) 로직
-        Teams->>SaaS: 에이전트 상태 폴링
-        SaaS-->>Teams: "Active" 반환
-    end
-
-    Teams->>Admin: 🎉 대시보드 화면 렌더링 전환
+    Teams->>User: 메인 대시보드 / 구독 목록 노출 🦾
 ```
 
 ### 📍 주요 구현 변경 사항
 
-1. **신규 라우터 개설 (`POST /api/v1/tenants`)**
-   - 프론트엔드가 SSO 인증을 마치고, 백엔드에 가장 먼저 호출하는 명시적 가입 엔드포인트입니다.
-   - Body 없이 오직 헤더의 `Bearer {SSO_Token}`만으로 고객사를 식별하여 저장합니다.
+1. **선-동의 후-등록 (Consent-First Gate) 도입**
+   - **AS-IS**: SSO 인증 직후 바로 `POST /tenants`를 호출하여 DB에 생성했습니다.
+   - **TO-BE**: `GET /tenants/me`를 먼저 호출하여 백엔드가 OBO 토큰 교환을 통해 **조직 전체 동의(Admin Consent)** 여부를 먼저 검증합니다. 동의가 확인된 상태에서만 명시적인 등록(`POST /tenants`)이 가능하도록 게이트를 강화했습니다.
 
-2. **AOP (관점 지향 프로그래밍) 원칙 적용 리팩토링**
-   - **AS-IS**: `RegisterTenantUseCase` 내부에서 직접 토큰을 디코딩하고 `tid`를 꺼냈습니다. (HTTP 레이어의 침범)
-   - **TO-BE**: `router.py`에서 `Depends(get_current_identity)` 미들웨어를 통해, 토큰 파싱과 검증을 라우터 진입 전에 마칩니다. UseCase는 오직 비즈니스 로직에만 집중하며, 이미 안전하게 파싱된 `Identity` 도메인 객체를 주입받아 사용합니다.
-3. **불필요한 DB Transaction 감소 (Idempotency 설계)**
-   - 이미 가입된 고객사가 새로고침 등으로 `POST /tenants`를 재호출할 경우, 불필요하게 DB를 `upsert` 하지 않도록 방어했습니다. DB에 `tenant_id`가 이미 존재한다면 즉시 **`409 Conflict` (ConflictException)** 예외를 던집니다.
-   - 이로 인해 프론트엔드는 `200 OK` 또는 `409 Conflict` 두 가지 응답 모두를 정상 접속으로 처리하고, 후속 로직(구독 조회)을 안전하게 이어갈 수 있습니다.
+2. **최소 권한의 법칙 (Least Privilege) 적용**
+   - 사용자가 로그인 팝업에서 승인해야 하는 권한(Scope)에서 `Directory.Read.All` 위임 권한을 삭제했습니다.
+   - 대신, 디렉터리 조회가 필요한 로직은 백엔드에서 **앱 전용 권한(Application Permission)**을 사용하여 안전하게 수행하도록 분리했습니다.
+
+3. **중단(Stop-on-Error) 및 가이드 Flow 강화**
+   - MFA 인증이 필요하거나 동의가 없는 상황에서 후속 API(Subscriptions)가 호출되지 않도록 안정적인 중단 로직을 추가했습니다.
+   - 인증 에러 발생 시 사용자 유형(일반/관리자)에 맞춰 관리자 연락처 리스트 또는 동의 버튼을 동적으로 노출합니다.
+
+4. **신규 라우터 개설 (`POST /api/v1/tenants/`)**
+   - 프론트엔드가 모든 권한 검증을 마치고, 백엔드에 테넌트 가입을 최종 확정하는 엔드포인트입니다.
+   - **보안 강화**: `tenant_id`를 본문에 포함하지 않고, 백엔드에서 SSO 토큰을 통해 직접 추출하여 무결성을 보장합니다.
+   - **멱등성 보장**: 이미 가입된 고객사가 재호출할 경우 기존 정보를 반환하거나 적절히 처리하여 안전하게 동작합니다.
 
 ---
 
@@ -155,3 +158,72 @@ def create(tenant_id: str, agent_id: str, ...) -> "Agent":
 
 - **파티션 키 (`tenant_id`)**: 조회 범위를 좁히기 위해 언제나 **`tenant_id`**를 사용.
 - **고유 식별자 (`id`)**: 같은 파티션 안에서 겹치면 안 되므로, **`{tenant_id}:{개별_유니크_값}`** 또는 순수 **`uuid.uuid4().hex`** 를 백엔드 코드에서 직접 생성해서 매핑.
+
+---
+
+## 3. 에이전트 등록 전략: Passive vs Active Tracking
+
+에이전트 배포 시 공급사가 배포 과정을 얼마나 능동적으로 추적할지에 따라 두 가지 전략이 존재합니다.
+
+### 1) Passive Registration (현재 구현 방식)
+
+- **흐름**: 사용자가 Azure Portal로 떠난 후, 백엔드는 에이전트가 설치되어 `/handshake`를 호출할 때까지 기다립니다.
+- **장점**: 구현이 단순하며, 중도 포기한 사용자의 "유령 데이터"가 DB에 쌓이지 않아 관리 부담이 적습니다.
+- **단점**: 사용자가 포털에서 배포를 시작했는지 백엔드가 즉시 알 수 없어, 대시보드에서 "배포 중"이라는 실시간 피드백을 주기 어렵습니다.
+
+### 2) Pre-registration (운영 관리 강화 방식)
+
+- **흐름**: 사용자가 [설치]를 클릭하는 순간 백엔드가 `PENDING` 상태의 에이전트 레코드를 먼저 생성하고 포털로 보냅니다.
+- **장점**: 공급사(Admin)가 "동의는 했으나 설치는 안 한" 이탈 사용자를 추적할 수 있어 고객 관리(CRM)에 효율적입니다.
+- **단점**: 설치를 취소한 경우 `PENDING` 데이터가 남으므로 주기적인 Cleanup 로직이 필요합니다.
+
+> **[결정]**: 현재는 시스템의 안정성과 단순함을 위해 **Passive Registration** 방식을 채택하고 있으며, 핸드셰이크 시점에 `INITIALIZING` 상태로 생성됩니다. 향후 운영자 대시보드 기능이 강화될 때 Pre-registration으로 확장할 예정입니다.
+
+---
+
+## 4. 구독 선택 및 에이전트 배포 Flow (Post-Registration)
+
+테넌트 명시적 등록(Register)이 끝난 후, 실제 로그닥터 에이전트 인프라를 고객사 측에 배포하고 연동하는 과정입니다.
+
+```mermaid
+sequenceDiagram
+    autonumber
+
+    participant Admin as 🔑 [고객사] 전역 관리자
+    participant Teams as 🛠️ [구현-Front] React (Tab)
+    participant API as 🛠️ [구현-Back] FastAPI
+    participant Entra as ☁️ Microsoft Entra ID (Azure)
+    participant ARM as ⚙️ [고객사] ARM API
+    participant Agent as 🤖 [구현-Infra] Agent (Function App)
+
+    Note over Admin, API: --- [1단계: 구독 목록 조회 (OBO Flow)] ---
+    Teams->>API: GET /api/v1/subscriptions (Auth: SSO Token)
+    API->>Entra: OBO 토큰 교환 (Client Secret + SSO Token)
+    Entra-->>API: Azure Management API 연동용 Access Token 발급
+
+    API->>ARM: GET /subscriptions (Bearer: <OBO Token>)
+    ARM-->>API: 구독 리스트 반환
+    API-->>Teams: 구독 모델 변환 후 응답
+
+    Note over Admin, Agent: --- [2단계: 자동 배포 화면 (Portal Handoff)] ---
+    Admin->>Teams: 특정 구독 선택 후 [설치] 클릭
+    Note right of Teams: 🛠️ [프론트 구현]: Bicep URL + Webhook 파라미터 조합
+    Teams->>Admin: Azure Portal 커스텀 배포(Template) 화면 진입 리다이렉트
+    Admin->>ARM: Portal에서 템플릿 검토 후 [만들기] 클릭
+    ARM-->>Agent: Function App 및 필수 Azure 리소스 생성 (프로비저닝)
+
+    Note over Entra, Agent: --- [3단계: 배포 완료 알림 (Handshake)] ---
+    Note right of Agent: 🛠️ [에이전트 구현]: 기동 시 백엔드로 최초 생존 신고(Handshake) 발송
+    Agent->>API: POST /api/v1/agents/handshake (설치 메타데이터 포함)
+
+    Note left of API: 🛠️ [백엔드 구현]: DB 상태 업데이트
+    API->>API: DB에 Agent 상태 및 헬스 체크 정보 갱신
+
+    loop 상태 모니터링
+        Note right of Teams: 🛠️ [프론트 구현]: 폴링(Polling) 로직
+        Teams->>API: 테넌트 및 에이전트 설치 상태 폴링
+        API-->>Teams: Active / Ready 완료 상태 반환
+    end
+
+    Teams->>Admin: 🎉 모니터링 대시보드 화면(메인 뷰) 렌더링 전환
+```

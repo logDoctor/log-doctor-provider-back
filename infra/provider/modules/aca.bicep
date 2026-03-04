@@ -130,10 +130,10 @@ resource acaAuth 'Microsoft.App/containerApps/authConfigs@2023-05-01' = {
   parent: aca
   properties: {
     platform: {
-      enabled: true
+      enabled: false
     }
     globalValidation: {
-      unauthenticatedClientAction: 'RedirectToLoginPage'
+      unauthenticatedClientAction: 'AllowAnonymous'
       redirectToProvider: 'azureActiveDirectory'
       excludedPaths: [
         '/api/v1/templates/*'
@@ -144,9 +144,9 @@ resource acaAuth 'Microsoft.App/containerApps/authConfigs@2023-05-01' = {
     }
     identityProviders: {
       azureActiveDirectory: {
-        enabled: true
+        enabled: false
         registration: {
-          openIdIssuer: '${environment().authentication.loginEndpoint}${entraTenantId}/v2.0'
+          openIdIssuer: '${environment().authentication.loginEndpoint}${empty(entraTenantId) || entraTenantId == 'common' ? 'common' : entraTenantId}/v2.0'
           clientId: entraClientId
           clientSecretSettingName: 'entra-client-secret'
         }

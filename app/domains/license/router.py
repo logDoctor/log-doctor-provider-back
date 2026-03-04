@@ -1,5 +1,5 @@
-from fastapi import APIRouter
 from fastapi_restful.cbv import cbv
+from app.core.routing import APIRouter
 
 router = APIRouter(prefix="/licenses", tags=["License"])
 
