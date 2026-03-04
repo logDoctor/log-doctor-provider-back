@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 from urllib.parse import quote
 
 from app.domains.package.usecases import GetPackageUseCase
@@ -27,11 +28,12 @@ class GetSubscriptionSetupInfoUseCase:
 
         # 3. 설치 파라미터 구성
         parameters = {
-            "resourceGroupName": {"value": f"rg-logdr-{subscription_id[:8]}"},
-            "appName": {"value": f"logdr-client-{subscription_id[:8]}"},
+            "resourceGroupName": {"value": "rg-logdoctor-client"},
+            "appName": {"value": "logdoctor-client"},
             "env": {"value": "prod"},
             "providerUrl": {"value": base_url},
             "packageUrl": {"value": package_url},
+            "deploymentId": {"value": datetime.now(UTC).strftime("%Y%m%d%H%M%S")},  # 🚀 [FIX] 매 배포마다 설정을 변경하여 재시작 유도
         }
 
         # 4. Azure Portal 'Deploy to Azure' 링크 생성
