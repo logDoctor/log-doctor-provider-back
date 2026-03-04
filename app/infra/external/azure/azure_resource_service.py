@@ -118,6 +118,3 @@ class AzureResourceServiceImpl(AzureResourceService):
             logger.error("Resource group existence check error", error=str(e))
             # 확인 실패 시 안전하게 '존재한다'로 간주 (삭제 확정 방지)
             return True
-        finally:
-            if credential:
-                await credential.close()
