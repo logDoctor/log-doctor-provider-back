@@ -62,10 +62,21 @@ class AzureAgentRepository(AgentRepository):
         results = [item async for item in items]
         if not results:
             return None
-            
-        # In-memory sorting: ACTIVE < DELETED, and newer _ts first
-        # status ASC (ACTIVE, INITIALIZING, DEACTIVATING, DELETED, ...)
-        results.sort(key=lambda x: (x.get("status", "ZZZ"), -x.get("_ts", 0)))
+
+        # Priority-based sorting: 
+        # 1. ACTIVE, INITIALIZING, DEACTIVATING, DEACTIVATE_FAILED (Alive states)
+        # 2. DELETED (Dead state)
+        # Within the same category, newer _ts first.
+        def sort_key(x):
+            status = x.get("status", "UNKNOWN")
+            # Alive states get priority 0, DELETED gets priority 1
+            priority = 1 if status == "DELETED" else 0
+            # Tie-break with status priority if needed, then timestamp
+            status_map = {"ACTIVE": 0, "INITIALIZING": 1, "DEACTIVATING": 2, "DEACTIVATE_FAILED": 3}
+            sub_priority = status_map.get(status, 9)
+            return (priority, sub_priority, -x.get("_ts", 0))
+
+        results.sort(key=sort_key)
         
         return results[0] # Decorator will handle mapping to Agent
 
@@ -99,7 +110,7 @@ class AzureAgentRepository(AgentRepository):
 
         # 3. 데이터 조회 (Pagination)
         data_query = (
-            f"SELECT * FROM c {where_clause} OFFSET {skip} LIMIT {limit}"
+            f"SELECT * FROM c {where_clause} ORDER BY c._ts DESC OFFSET {skip} LIMIT {limit}"
         )
         items = self.container.query_items(
             query=data_query,
