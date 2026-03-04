@@ -1,6 +1,16 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import Enum
 import uuid
+
+
+class AgentStatus(str, Enum):
+    INITIALIZING = "INITIALIZING"
+    ACTIVE = "ACTIVE"
+    DEACTIVATING = "DEACTIVATING"
+    DEACTIVATE_FAILED = "DEACTIVATE_FAILED"
+    DELETED = "DELETED"
+    UNKNOWN = "UNKNOWN"
 
 
 @dataclass
@@ -17,7 +27,7 @@ class Agent:
     agent_id: str
     version: str
     capabilities: list[str]  # 에이전트의 주요 기능 (detect, filter, retain 등)
-    status: str
+    status: AgentStatus
     analysis_schedule: str
     last_handshake_at: str
     deleted_at: str | None = None
@@ -51,7 +61,7 @@ class Agent:
             agent_id=agent_id,
             version=version,
             capabilities=capabilities,
-            status="INITIALIZING",
+            status=AgentStatus.ACTIVE,
             analysis_schedule="0 0 * * *",  # Default: 매일 자정
             last_handshake_at=now,
             deleted_at=None,
@@ -73,7 +83,7 @@ class Agent:
             agent_id=data["agent_id"],
             version=data["version"],
             capabilities=data.get("capabilities", []),
-            status=data.get("status", "UNKNOWN"),
+            status=AgentStatus(data.get("status", AgentStatus.UNKNOWN)),
             analysis_schedule=data.get("analysis_schedule", "0 0 * * *"),
             last_handshake_at=data["last_handshake_at"],
             deleted_at=data.get("deleted_at"),
@@ -94,7 +104,7 @@ class Agent:
             "agent_id": self.agent_id,
             "version": self.version,
             "capabilities": self.capabilities,
-            "status": self.status,
+            "status": self.status.value,
             "analysis_schedule": self.analysis_schedule,
             "last_handshake_at": self.last_handshake_at,
         }
@@ -114,7 +124,7 @@ class Agent:
     def update(
         self,
         version: str | None = None,
-        status: str | None = None,
+        status: AgentStatus | None = None,
         analysis_schedule: str | None = None,
     ) -> list[str]:
         """필드 정보를 업데이트하고 변경된 필드 목록을 반환합니다."""
@@ -136,28 +146,27 @@ class Agent:
 
     def deactivate(self):
         """에이전트를 비활성화 상태로 전환합니다. (Azure 리소스 삭제 진행 중)"""
-        self.status = "DEACTIVATING"
+        self.status = AgentStatus.DEACTIVATING
 
     def is_deleted(self) -> bool:
         """에이전트가 삭제된 상태인지 확인합니다."""
-        return self.status == "DELETED"
+        return self.status == AgentStatus.DELETED
 
     def activate(self):
         """에이전트 핸드쉐이크가 성공하여 활성 상태로 전환합니다."""
-        if self.status == "INITIALIZING":
-            self.status = "ACTIVE"
+        if self.status == AgentStatus.INITIALIZING:
+            self.status = AgentStatus.ACTIVE
 
     def confirm_deletion(self):
         """Azure 리소스 삭제가 확인된 후 최종 삭제 상태로 전환합니다."""
-        self.status = "DELETED"
+        self.status = AgentStatus.DELETED
         self.deleted_at = datetime.now(UTC).isoformat()
 
     def reactivate(self):
         """삭제된 에이전트가 다시 핸드쉐이크를 보낼 때 복구합니다."""
-        self.status = "ACTIVE"
+        self.status = AgentStatus.ACTIVE
         self.deleted_at = None
-
 
     def mark_deactivate_failed(self):
         """Azure 리소스 삭제가 실패하여 비활성화에 실패했음을 표시합니다."""
-        self.status = "DEACTIVATE_FAILED"
+        self.status = AgentStatus.DEACTIVATE_FAILED

@@ -4,7 +4,7 @@ from azure.cosmos.aio import ContainerProxy
 
 from app.infra.db.cosmos import cosmos_repository
 
-from .models import Agent
+from .models import Agent, AgentStatus
 
 
 # 1. Interface
@@ -68,11 +68,16 @@ class AzureAgentRepository(AgentRepository):
         # 2. DELETED (Dead state)
         # Within the same category, newer _ts first.
         def sort_key(x):
-            status = x.get("status", "UNKNOWN")
+            status = x.get("status", AgentStatus.UNKNOWN.value)
             # Alive states get priority 0, DELETED gets priority 1
-            priority = 1 if status == "DELETED" else 0
+            priority = 1 if status == AgentStatus.DELETED.value else 0
             # Tie-break with status priority if needed, then timestamp
-            status_map = {"ACTIVE": 0, "INITIALIZING": 1, "DEACTIVATING": 2, "DEACTIVATE_FAILED": 3}
+            status_map = {
+                AgentStatus.ACTIVE.value: 0, 
+                AgentStatus.INITIALIZING.value: 1, 
+                AgentStatus.DEACTIVATING.value: 2, 
+                AgentStatus.DEACTIVATE_FAILED.value: 3
+            }
             sub_priority = status_map.get(status, 9)
             return (priority, sub_priority, -x.get("_ts", 0))
 
@@ -87,7 +92,7 @@ class AzureAgentRepository(AgentRepository):
         self, tenant_id: str | None, skip: int = 0, limit: int = 10
     ) -> tuple[list[Agent], int]:
         # 1. 기본 쿼리 및 파라미터 설정
-        where_clauses = ["c.status != 'DELETED'"]
+        where_clauses = [f"c.status != '{AgentStatus.DELETED.value}'"]
         parameters = []
 
         if tenant_id:

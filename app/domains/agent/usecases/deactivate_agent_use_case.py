@@ -3,6 +3,7 @@ import structlog
 from app.core.auth import get_obo_access_token
 from app.core.auth.models import Identity
 from app.core.exceptions import NotFoundException
+from app.domains.agent.models import Agent, AgentStatus
 from app.domains.agent.repository import AgentRepository
 from app.infra.external.azure.azure_resource_service import AzureResourceService
 
@@ -37,10 +38,10 @@ class DeactivateAgentUseCase:
             raise NotFoundException(f"에이전트를 찾을 수 없습니다: {agent_id}")
 
         # 2. 이미 비활성화 중이거나 삭제된 경우
-        if agent.status in ("DEACTIVATING", "DELETED"):
+        if agent.status in (AgentStatus.DEACTIVATING, AgentStatus.DELETED):
             return {
                 "success": True,
-                "message": f"에이전트가 이미 {agent.status} 상태입니다.",
+                "message": f"에이전트가 이미 {agent.status.value} 상태입니다.",
                 "azure_status": "SKIPPED",
             }
 

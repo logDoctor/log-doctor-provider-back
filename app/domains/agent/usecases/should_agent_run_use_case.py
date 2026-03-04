@@ -64,7 +64,11 @@ class ShouldAgentRunUseCase:
                 error=str(e),
             )
 
-        # 2. 결과 반환
+        # 2. 하트비트 갱신 (마지막 통신 시간 업데이트)
+        agent.last_handshake_at = datetime.now(UTC).isoformat()
+        await self.repository.upsert_agent(agent.to_dict())
+
+        # 3. 결과 반환
         return AgentPollingResponse(
             should_run=is_run_time,
             command="ANALYZE" if is_run_time else None,
