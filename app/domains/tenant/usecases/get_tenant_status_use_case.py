@@ -1,8 +1,9 @@
 from app.core.auth.models import Identity
-from app.core.exceptions import NotFoundException, UnauthorizedException
 from app.core.auth.services.auth_provider import TokenProvider
+from app.core.exceptions import NotFoundException, UnauthorizedException
 from app.domains.tenant.repository import TenantRepository
 from app.domains.tenant.schemas import GetTenantStatusResponse
+
 
 class GetTenantStatusUseCase:
     def __init__(self, tenant_repository: TenantRepository, token_provider: TokenProvider):

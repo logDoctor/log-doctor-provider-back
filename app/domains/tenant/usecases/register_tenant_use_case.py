@@ -1,10 +1,10 @@
 import structlog
 
 from app.core.auth.models import Identity
+from app.core.auth.services.graph_service import GraphService
 from app.domains.tenant.models import Tenant
 from app.domains.tenant.repository import TenantRepository
 from app.domains.tenant.schemas import RegisterTenantResponse
-from app.core.auth.services.graph_service import GraphService
 
 logger = structlog.get_logger()
 

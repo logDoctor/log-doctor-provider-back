@@ -3,22 +3,26 @@ from fastapi_restful.cbv import cbv
 
 from app.core.auth.guards import get_current_identity
 from app.core.auth.models import Identity
+from app.core.routing import APIRouter
 
 from .dependencies import (
     get_register_tenant_use_case,
-    get_tenant_status_use_case,
     get_search_tenant_users_use_case,
+    get_tenant_status_use_case,
     get_update_tenant_use_case,
 )
-from .schemas import GetTenantStatusResponse, RegisterTenantResponse, RegisterTenantRequest, UpdateTenantRequest
+from .schemas import (
+    GetTenantStatusResponse,
+    RegisterTenantRequest,
+    RegisterTenantResponse,
+    UpdateTenantRequest,
+)
 from .usecases import (
     GetTenantStatusUseCase,
     RegisterTenantUseCase,
     SearchTenantUsersUseCase,
     UpdateTenantUseCase,
 )
-
-from app.core.routing import APIRouter
 
 router = APIRouter(prefix="/tenants", tags=["Tenant"])
 

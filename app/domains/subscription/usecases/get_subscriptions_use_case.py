@@ -1,6 +1,6 @@
 from app.core.auth import get_obo_access_token
 from app.core.auth.models import Identity
-from app.core.exceptions import NotFoundException, UnauthorizedException
+from app.core.exceptions import UnauthorizedException
 from app.domains.subscription.repository import SubscriptionRepository
 from app.domains.subscription.schemas import SubscriptionItem, SubscriptionListResponse
 from app.domains.tenant.repository import TenantRepository

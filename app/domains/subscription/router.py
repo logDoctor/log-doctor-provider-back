@@ -1,8 +1,10 @@
 from fastapi import Depends, Request
 from fastapi_restful.cbv import cbv
+
 from app.core.auth.guards import get_current_identity
 from app.core.auth.models import Identity
 from app.core.config import settings
+from app.core.routing import APIRouter
 
 from .dependencies import (
     get_subscription_setup_info_use_case,
@@ -10,8 +12,6 @@ from .dependencies import (
 )
 from .schemas import SubscriptionListResponse, SubscriptionSetupResponse
 from .usecases import GetSubscriptionSetupInfoUseCase, GetSubscriptionsUseCase
-
-from app.core.routing import APIRouter
 
 router = APIRouter(prefix="/subscriptions", tags=["Subscription"])
 

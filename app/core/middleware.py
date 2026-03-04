@@ -1,7 +1,8 @@
-import time
 import json
+import time
+
 import structlog
-from fastapi import Request, Response
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import Message
 

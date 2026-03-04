@@ -1,7 +1,8 @@
-import httpx
-import structlog
 import asyncio
 import re
+
+import httpx
+import structlog
 
 from app.core.config import settings
 from app.core.exceptions import UnauthorizedException

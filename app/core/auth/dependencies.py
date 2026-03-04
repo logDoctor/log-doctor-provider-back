@@ -1,10 +1,15 @@
 from app.core.config import settings
+
 from .services.admin_verifier import AdminVerifier
-from .services.auth_provider import EntraIDTokenProvider, MockTokenProvider, TokenProvider
+from .services.auth_provider import (
+    EntraIDTokenProvider,
+    MockTokenProvider,
+    TokenProvider,
+)
+from .services.graph_service import GraphService
 from .services.identity_extractor import IdentityExtractor
 from .services.jwt_service import JwtService
 from .services.tenant_verifier import TenantVerifier
-from .services.graph_service import GraphService
 
 # --- 서비스 공급자 (Factories / Low-level Dependencies) ---
 

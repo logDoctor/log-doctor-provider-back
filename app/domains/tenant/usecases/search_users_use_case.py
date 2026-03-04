@@ -1,6 +1,6 @@
-from app.core.exceptions import UnauthorizedException
-from app.core.auth.services.graph_service import GraphService
 from app.core.auth.models import Identity
+from app.core.auth.services.graph_service import GraphService
+
 
 class SearchTenantUsersUseCase:
     def __init__(self, graph_service: GraphService):

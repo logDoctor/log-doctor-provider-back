@@ -1,11 +1,12 @@
 from fastapi import Depends
+
+from app.domains.package.dependencies import get_package_use_case
+from app.domains.package.usecases import GetPackageUseCase
 from app.domains.tenant.dependencies import get_tenant_repository
 from app.domains.tenant.repository import TenantRepository
 
 from .repository import AzureSubscriptionRepository, SubscriptionRepository
 from .usecases import GetSubscriptionSetupInfoUseCase, GetSubscriptionsUseCase
-from app.domains.package.usecases import GetPackageUseCase
-from app.domains.package.dependencies import get_package_use_case
 
 
 def get_subscription_repository() -> SubscriptionRepository:

@@ -1,9 +1,9 @@
-from app.core.auth.services.jwt_service import JwtService
 from abc import ABC, abstractmethod
 
 import msal
 import structlog
 
+from app.core.auth.services.jwt_service import JwtService
 from app.core.config import settings
 from app.core.exceptions import UnauthorizedException
 

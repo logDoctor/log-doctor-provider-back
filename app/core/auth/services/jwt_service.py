@@ -1,12 +1,14 @@
 import base64
 import json
-import jwt
 import time
+
+import jwt
 from jwt import PyJWKClient
 from structlog import get_logger
 
 from app.core.config import settings
 from app.core.exceptions import UnauthorizedException
+
 
 class JwtService:
     """JWT 토큰 및 관련 인코딩 데이터(Base64-JSON) 연산을 담당하는 서비스"""

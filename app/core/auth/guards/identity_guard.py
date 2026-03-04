@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import Depends, Header, Request
 
 from app.core.exceptions import UnauthorizedException
+
 from ..dependencies import get_identity_extractor
 from ..models import Identity, IdentityType
 
