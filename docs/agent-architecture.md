@@ -157,3 +157,26 @@ sequenceDiagram
 
 - **비용 최적화**: 30분 주기의 폴링은 Azure Functions의 무료 제공량 내에서 충분히 소화되므로 고객 비용 부담이 거의 없습니다.
 - **수평 확장**: 에이전트 요청 분산을 위해 Jitter(랜덤 오차)를 적용하며, 공급자 백엔드는 컨테이너 앱(ACA)의 오토스케일링을 통해 수만 개의 요청을 처리합니다.
+
+---
+
+## 6. 에이전트 비활성화 생명주기 (Deactivation Lifecycle)
+
+에이전트 제거 시 고객사 Azure 리소스 그룹을 삭제한 후, 백엔드에서 소프트 딜리트 처리합니다.
+
+### 상태 전이
+
+```
+ACTIVE / INITIALIZING → DEACTIVATING → DELETED
+                                    → DEACTIVATE_FAILED (실패 시)
+```
+
+### 3단계 API
+
+| API                                  | 역할                                        |
+| :----------------------------------- | :------------------------------------------ |
+| `DELETE /agents/{id}`                | OBO 토큰으로 Azure 삭제 요청 + DEACTIVATING |
+| `GET /agents/{id}/azure-status`      | Managed Identity로 리소스 그룹 존재 확인    |
+| `POST /agents/{id}/confirm-deletion` | 삭제 확인 후 DELETED 확정                   |
+
+> 상세 설계는 [agent-deactivation.md](./agent-deactivation.md) 참조
