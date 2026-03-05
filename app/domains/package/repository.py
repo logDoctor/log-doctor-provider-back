@@ -2,9 +2,11 @@ import logging
 import os
 import shutil
 from abc import ABC, abstractmethod
+from datetime import UTC, datetime, timedelta
 
 from azure.core.exceptions import ResourceExistsError
 from azure.identity.aio import DefaultAzureCredential
+from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 from azure.storage.blob.aio import BlobServiceClient
 from fastapi.concurrency import run_in_threadpool
 
@@ -39,6 +41,11 @@ class AgentPackageRepository(ABC):
     @abstractmethod
     async def download(self, filename: str):
         """패키지 파일의 내용을 읽기 위한 스트림 또는 경로를 반환합니다."""
+        pass
+
+    @abstractmethod
+    async def generate_download_url(self, filename: str) -> str:
+        """Azure가 직접 접근 가능한 다운로드 URL을 생성합니다."""
         pass
 
 
@@ -77,6 +84,10 @@ class FileSystemAgentPackageRepository(AgentPackageRepository):
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
         return file_path
+
+    async def generate_download_url(self, filename: str) -> str:
+        """로컬 환경에서는 서버 프록시 URL을 반환합니다."""
+        return f"/api/v1/packages/download/{filename}"
 
     def _get_package_info(self, filename: str) -> PackageInfo:
         file_path = os.path.join(self.packages_dir, filename)
@@ -216,3 +227,35 @@ class BlobStorageAgentPackageRepository(AgentPackageRepository):
 
         stream = await blob_client.download_blob()
         return stream
+
+    async def generate_download_url(self, filename: str) -> str:
+        """Blob SAS URL을 생성하여 Azure가 직접 접근 가능한 URL을 반환합니다."""
+        from app.core.config import settings
+
+        # Connection String에서 Account Key 추출
+        account_name = None
+        account_key = None
+        if settings.AZURE_STORAGE_CONNECTION_STRING:
+            parts = dict(
+                part.split("=", 1)
+                for part in settings.AZURE_STORAGE_CONNECTION_STRING.split(";")
+                if "=" in part
+            )
+            account_name = parts.get("AccountName")
+            account_key = parts.get("AccountKey")
+
+        if not account_name or not account_key:
+            # Connection String이 없으면 서버 프록시 URL로 폴백
+            logger.warning("Account key not found, falling back to proxy URL")
+            return f"/api/v1/packages/download/{filename}"
+
+        sas_token = generate_blob_sas(
+            account_name=account_name,
+            container_name=self.container_name,
+            blob_name=filename,
+            account_key=account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.now(UTC) + timedelta(days=30),
+        )
+
+        return f"https://{account_name}.blob.core.windows.net/{self.container_name}/{filename}?{sas_token}"
