@@ -206,7 +206,6 @@ class AgentRouter:
     @router.post("/{client_agent_id}/request-update", response_model=AgentUpdateDeployResponse)
     async def request_update(
         self,
-        fastapi_req: Request,
         client_agent_id: str,
         request: AgentUpdateDeployRequest,
         identity: Identity = Depends(get_current_identity),
@@ -217,12 +216,10 @@ class AgentRouter:
         Azure ARM API로 Function App의 WEBSITE_RUN_FROM_PACKAGE 설정을 변경하여
         에이전트가 새 패키지로 자동 재시작되도록 합니다.
         """
-        base_url = str(fastapi_req.base_url).rstrip("/")
         return await self.request_update_use_case.execute(
             identity=identity,
             tenant_id=request.tenant_id,
             agent_id=client_agent_id,
             target_version=request.target_version,
-            base_url=base_url,
         )
 

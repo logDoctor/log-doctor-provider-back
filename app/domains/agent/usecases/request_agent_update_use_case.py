@@ -33,7 +33,6 @@ class RequestAgentUpdateUseCase:
         tenant_id: str,
         agent_id: str,
         target_version: str = "latest",
-        base_url: str = "",
     ) -> dict:
         # 1. 에이전트 조회
         agent = await self.repository.get_active_agent_by_client_id(
@@ -60,8 +59,8 @@ class RequestAgentUpdateUseCase:
                 "target_version": package.version,
             }
 
-        # 3. 새 패키지 다운로드 URL 생성
-        new_package_url = f"{base_url}{package.url}"
+        # 3. Azure가 직접 접근 가능한 다운로드 URL 생성
+        new_package_url = await self.package_repository.generate_download_url(package.filename)
 
         # 4. OBO 토큰으로 ARM API 호출
         arm_token = await get_obo_access_token(identity.sso_token)
