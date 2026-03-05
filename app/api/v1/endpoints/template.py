@@ -33,7 +33,7 @@ async def get_client_template(request: Request):
     template_data = json.loads(await path.read_text(encoding="utf-8"))
 
     # 1. 외부 파라미터 제어 (Azure Portal UI에서 불필요하거나 고정된 값 숨기기)
-    for param_to_del in ["providerUrl", "packageUrl", "providerClientId"]:
+    for param_to_del in ["providerUrl", "packageUrl", "providerClientId", "deploymentId"]:
         if param_to_del in template_data.get("parameters", {}):
             del template_data["parameters"][param_to_del]
 
