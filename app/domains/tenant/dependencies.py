@@ -9,7 +9,6 @@ from .repository import AzureTenantRepository, TenantRepository
 from .usecases import (
     GetTenantStatusUseCase,
     RegisterTenantUseCase,
-    SearchTenantUsersUseCase,
     UpdateTenantUseCase,
 )
 
@@ -33,13 +32,6 @@ def get_register_tenant_use_case(
 ) -> RegisterTenantUseCase:
     """Returns a RegisterTenantUseCase instance with the injected repository and graph service."""
     return RegisterTenantUseCase(tenant_repository, graph_service)
-
-
-def get_search_tenant_users_use_case(
-    graph_service: GraphService = Depends(get_graph_service),
-) -> SearchTenantUsersUseCase:
-    """Returns a SearchTenantUsersUseCase instance."""
-    return SearchTenantUsersUseCase(graph_service)
 
 
 def get_update_tenant_use_case(
