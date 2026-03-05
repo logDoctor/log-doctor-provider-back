@@ -28,8 +28,8 @@ class GetSubscriptionSetupInfoUseCase:
 
         # 3. 설치 파라미터 구성
         parameters = {
-            "resourceGroupName": {"value": "rg-logdoctor-client"},
-            "appName": {"value": "logdoctor-client"},
+            "resourceGroupName": {"value": f"rg-logdoctor-{subscription_id[:8]}"},
+            "appName": {"value": f"logdr-client-{subscription_id[:8]}"},
             "env": {"value": "prod"},
             "providerUrl": {"value": base_url},
             "packageUrl": {"value": package_url},
