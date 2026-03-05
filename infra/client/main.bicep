@@ -7,6 +7,9 @@ param resourceGroupName string = 'rg-logdoctor-client'
 param providerUrl string = ''
 param packageUrl string = ''
 param providerClientId string = ''
+@description('매 배포마다 고유 값을 전달하여 ARM이 설정 변경으로 인식하도록 합니다. Bicep 내부에서는 사용하지 않습니다.')
+#disable-next-line no-unused-params
+param deploymentId string = ''
 
 var uniqueId = uniqueString(subscription().subscriptionId, resourceGroupName)
 var storageAccountName = 'st${toLower(uniqueId)}'

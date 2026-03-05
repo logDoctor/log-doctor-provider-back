@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "6432796417883312857"
+      "templateHash": "6396735451517403962"
     }
   },
   "parameters": {
@@ -36,6 +36,13 @@
     "providerClientId": {
       "type": "string",
       "defaultValue": ""
+    },
+    "deploymentId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "매 배포마다 고유 값을 전달하여 ARM이 설정 변경으로 인식하도록 합니다. Bicep 내부에서는 사용하지 않습니다."
+      }
     }
   },
   "variables": {
