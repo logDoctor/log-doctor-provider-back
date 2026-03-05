@@ -21,25 +21,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   }
 }
 
-resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2023-01-01' = {
-  parent: storageAccount
-  name: 'default'
-}
 
-resource analysisQueue 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-01-01' = {
-  parent: queueService
-  name: 'analysis-requests'
-}
-
-resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
-  parent: storageAccount
-  name: 'default'
-}
-
-resource agentStateContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
-  parent: blobService
-  name: 'agent-state'
-}
 
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: '${functionAppName}-law'

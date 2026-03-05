@@ -11,7 +11,7 @@ param providerClientId string = ''
 #disable-next-line no-unused-params
 param deploymentId string = ''
 
-var uniqueId = uniqueString(subscription().subscriptionId, resourceGroupName)
+var uniqueId = uniqueString(subscription().subscriptionId, subscription().tenantId)
 var storageAccountName = 'st${toLower(uniqueId)}'
 var functionAppName = '${appName}-${env}-fn-${uniqueId}'
 var appServicePlanName = '${appName}-${env}-plan'

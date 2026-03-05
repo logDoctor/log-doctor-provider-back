@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "6396735451517403962"
+      "templateHash": "16456480770062350457"
     }
   },
   "parameters": {
@@ -46,7 +46,7 @@
     }
   },
   "variables": {
-    "uniqueId": "[uniqueString(subscription().subscriptionId, parameters('resourceGroupName'))]",
+    "uniqueId": "[uniqueString(subscription().subscriptionId, subscription().tenantId)]",
     "storageAccountName": "[format('st{0}', toLower(variables('uniqueId')))]",
     "functionAppName": "[format('{0}-{1}-fn-{2}', parameters('appName'), parameters('env'), variables('uniqueId'))]",
     "appServicePlanName": "[format('{0}-{1}-plan', parameters('appName'), parameters('env'))]"
@@ -104,7 +104,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "796049129548938898"
+              "templateHash": "17994882782185239923"
             }
           },
           "parameters": {
@@ -152,38 +152,6 @@
                 "supportsHttpsTrafficOnly": true,
                 "defaultToOAuthAuthentication": true
               }
-            },
-            {
-              "type": "Microsoft.Storage/storageAccounts/queueServices",
-              "apiVersion": "2023-01-01",
-              "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
-              "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
-              ]
-            },
-            {
-              "type": "Microsoft.Storage/storageAccounts/queueServices/queues",
-              "apiVersion": "2023-01-01",
-              "name": "[format('{0}/{1}/{2}', parameters('storageAccountName'), 'default', 'analysis-requests')]",
-              "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts/queueServices', parameters('storageAccountName'), 'default')]"
-              ]
-            },
-            {
-              "type": "Microsoft.Storage/storageAccounts/blobServices",
-              "apiVersion": "2023-01-01",
-              "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
-              "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
-              ]
-            },
-            {
-              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
-              "apiVersion": "2023-01-01",
-              "name": "[format('{0}/{1}/{2}', parameters('storageAccountName'), 'default', 'agent-state')]",
-              "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]"
-              ]
             },
             {
               "type": "Microsoft.OperationalInsights/workspaces",
