@@ -18,6 +18,13 @@ class TokenProvider(ABC):
         """SSO 토큰을 On-Behalf-Of 액세스 토큰으로 교환합니다."""
         pass
 
+    @abstractmethod
+    async def get_app_token(
+        self, tid: str = "common", scopes: list[str] | None = None
+    ) -> str:
+        """클라이언트 자격 증명을 사용하여 앱 전역 권한 토큰을 획득합니다."""
+        pass
+
 
 class MockTokenProvider(TokenProvider):
     """로컬 개발 및 테스트를 위한 가짜 토큰 발급 구현체"""
@@ -25,6 +32,15 @@ class MockTokenProvider(TokenProvider):
     async def get_obo_token(self, sso_token: str) -> str:
         logger.info("Mock authentication method detected, returning dummy token")
         return f"mock_token_for_{sso_token[:10]}"
+
+    async def get_app_token(
+        self, tid: str = "common", scopes: list[str] | None = None
+    ) -> str:
+        logger.info(
+            "Mock authentication method detected, returning dummy app token",
+            scopes=scopes,
+        )
+        return f"mock_app_token_for_{tid}"
 
 
 class EntraIDTokenProvider(TokenProvider):
@@ -52,15 +68,47 @@ class EntraIDTokenProvider(TokenProvider):
         )
 
         try:
-            result = app.acquire_token_on_behalf_of(user_assertion=sso_token, scopes=scopes)
+            result = app.acquire_token_on_behalf_of(
+                user_assertion=sso_token, scopes=scopes
+            )
         except Exception as e:
             logger.error("MSAL OBO system error", error=str(e))
-            raise UnauthorizedException("인증 서비스 연결 중 오류가 발생했습니다.") from None
+            raise UnauthorizedException(
+                "인증 서비스 연결 중 오류가 발생했습니다."
+            ) from None
 
         if "access_token" in result:
             return result.get("access_token")
-        
+
         self._handle_msal_error(result)
+
+    async def get_app_token(
+        self, tid: str = "common", scopes: list[str] | None = None
+    ) -> str:
+        authority = f"https://login.microsoftonline.com/{tid}"
+        # 기본값은 Azure Management API (기존 로직 유지용)
+        final_scopes = scopes or ["https://management.azure.com/.default"]
+
+        app = msal.ConfidentialClientApplication(
+            settings.CLIENT_ID,
+            authority=authority,
+            client_credential=self._client_secret,
+        )
+
+        result = app.acquire_token_for_client(scopes=final_scopes)
+
+        if "access_token" in result:
+            return result.get("access_token")
+
+        logger.error(
+            "Failed to acquire app token",
+            error=result.get("error"),
+            desc=result.get("error_description"),
+            scopes=final_scopes,
+        )
+        raise UnauthorizedException(
+            f"앱 전용 토큰 획득에 실패했습니다: {result.get('error')}"
+        )
 
     def _is_already_management_token(self, payload: dict) -> bool:
         """
@@ -74,7 +122,7 @@ class EntraIDTokenProvider(TokenProvider):
            - 이 권한이 있다면 사용자를 대신해 리소스를 조작할 수 있는 상태입니다.
 
         이 체크가 필요한 이유:
-        - 프론트엔드에서 이미 ARM용 토큰을 직접 획득해서 보낸 경우, 이를 다시 OBO(On-Behalf-Of) 
+        - 프론트엔드에서 이미 ARM용 토큰을 직접 획득해서 보낸 경우, 이를 다시 OBO(On-Behalf-Of)
           교환하려고 시도하면 Azure AD(Entra ID)에서 중복/형식 오류를 발생시킵니다.
         - 개발자 도구(CLI)나 테스트 환경에서 발급받은 '마스터키'급 토큰을 바로 사용할 수 있게 해줍니다.
         """

@@ -15,6 +15,10 @@ class AdminVerifier:
         제공된 신원이 관리자인지 확인합니다.
         관리자가 아닐 경우 AuthError를 발생시킵니다.
         """
-        if identity.type not in (IdentityType.ADMIN, IdentityType.CI_CD):
+        if identity.type not in (
+            IdentityType.GLOBAL_ADMIN,
+            IdentityType.APP_ADMIN,
+            IdentityType.CI_CD,
+        ):
             raise AuthError("관리자 권한이 필요합니다.")
         return identity

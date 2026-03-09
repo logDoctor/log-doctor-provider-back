@@ -18,9 +18,11 @@ def get_jwt_service() -> JwtService:
     """JWT 연산 서비스를 생성하여 반환합니다."""
     return JwtService()
 
+
 def get_graph_service() -> GraphService:
-    """무상태 GraphService 인스턴스를 반환합니다."""
-    return GraphService()
+    """TokenProvider가 주입된 GraphService 인스턴스를 반환합니다."""
+    return GraphService(get_token_provider())
+
 
 def get_identity_extractor() -> IdentityExtractor:
     """신원 추출 서비스를 생성하여 반환합니다."""

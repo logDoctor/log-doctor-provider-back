@@ -13,33 +13,33 @@ class LogDoctorException(Exception):
 class NotFoundException(LogDoctorException):
     """리소스를 찾을 수 없을 때 발생하는 예외입니다."""
 
-    def __init__(self, message: str = "NOT_FOUND"):
+    def __init__(self, message: str = "Resource not found"):
         super().__init__(message, code="NOT_FOUND", status_code=404)
 
 
 class BadRequestException(LogDoctorException):
     """잘못된 요청일 때 발생하는 예외입니다."""
 
-    def __init__(self, message: str = "BAD_REQUEST"):
+    def __init__(self, message: str = "Bad request"):
         super().__init__(message, code="BAD_REQUEST", status_code=400)
 
 
 class UnauthorizedException(LogDoctorException):
     """인증되지 않은 사용자가 접근할 때 발생하는 예외입니다."""
 
-    def __init__(self, message: str = "UNAUTHORIZED"):
+    def __init__(self, message: str = "Unauthorized"):
         super().__init__(message, code="UNAUTHORIZED", status_code=401)
 
 
 class ForbiddenException(LogDoctorException):
     """권한이 없는 자원에 접근할 때 발생하는 예외입니다."""
 
-    def __init__(self, message: str = "FORBIDDEN"):
+    def __init__(self, message: str = "Forbidden"):
         super().__init__(message, code="FORBIDDEN", status_code=403)
 
 
 class ConflictException(LogDoctorException):
     """리소스가 이미 존재하거나 상태 충돌이 발생했을 때 던지는 예외입니다."""
 
-    def __init__(self, message: str = "CONFLICT"):
+    def __init__(self, message: str = "Resource already exists or conflict occurred"):
         super().__init__(message, code="CONFLICT", status_code=409)
