@@ -10,6 +10,7 @@ from app.infra.external.azure.dependencies import get_azure_resource_service
 
 from .repository import AgentRepository, AzureAgentRepository
 from .usecases import (
+    AdminUninstallUseCase,
     CheckAzureStatusUseCase,
     ConfirmAgentDeletionUseCase,
     DeactivateAgentUseCase,
@@ -85,4 +86,12 @@ def get_request_agent_update_use_case(
     azure_resource_service: AzureResourceService = Depends(get_azure_resource_service),
 ) -> RequestAgentUpdateUseCase:
     return RequestAgentUpdateUseCase(repository, package_repository, azure_resource_service)
+
+
+def get_admin_uninstall_use_case(
+    tenant_repository: TenantRepository = Depends(get_tenant_repository),
+    agent_repository: AgentRepository = Depends(get_agent_repository),
+    azure_resource_service: AzureResourceService = Depends(get_azure_resource_service),
+) -> AdminUninstallUseCase:
+    return AdminUninstallUseCase(tenant_repository, agent_repository, azure_resource_service)
 

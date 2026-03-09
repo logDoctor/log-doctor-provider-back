@@ -1,3 +1,4 @@
+from .admin_uninstall_use_case import AdminUninstallUseCase
 from .check_azure_status_use_case import CheckAzureStatusUseCase
 from .confirm_agent_deletion_use_case import ConfirmAgentDeletionUseCase
 from .deactivate_agent_use_case import DeactivateAgentUseCase
@@ -9,6 +10,7 @@ from .trigger_agent_analysis_use_case import TriggerAgentAnalysisUseCase
 from .update_agent_use_case import UpdateAgentUseCase
 
 __all__ = [
+    "AdminUninstallUseCase",
     "CheckAzureStatusUseCase",
     "ConfirmAgentDeletionUseCase",
     "DeactivateAgentUseCase",
@@ -19,4 +21,3 @@ __all__ = [
     "TriggerAgentAnalysisUseCase",
     "UpdateAgentUseCase",
 ]
-

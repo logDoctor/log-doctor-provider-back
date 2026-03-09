@@ -25,6 +25,11 @@ class AgentRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_all_by_tenant_id(self, tenant_id: str) -> list[Agent]:
+        """특정 테넌트의 모든 활성 에이전트 목록을 조회합니다."""
+        pass
+
+    @abstractmethod
     async def list_agents(
         self, tenant_id: str | None, skip: int = 0, limit: int = 10
     ) -> tuple[list[Agent], int]:
@@ -87,6 +92,17 @@ class AzureAgentRepository(AgentRepository):
 
     async def upsert_agent(self, item: dict) -> Agent:
         return await self.container.upsert_item(item)
+
+    async def get_all_by_tenant_id(self, tenant_id: str) -> list[Agent]:
+        query = "SELECT * FROM c WHERE c.tenant_id = @tenant_id AND c.status != @deleted"
+        parameters = [
+            {"name": "@tenant_id", "value": tenant_id},
+            {"name": "@deleted", "value": AgentStatus.DELETED.value},
+        ]
+        items = self.container.query_items(
+            query=query, parameters=parameters, partition_key=tenant_id
+        )
+        return [Agent.from_dict(item) async for item in items]
 
     async def list_agents(
         self, tenant_id: str | None, skip: int = 0, limit: int = 10

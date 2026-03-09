@@ -18,7 +18,7 @@ class ListAgentsUseCase:
         """시나리오별 보안 검증을 수행하고 에이전트 목록을 조회합니다."""
 
         # 1. 보안 검증 및 테넌트 확정
-        is_admin = identity.type == IdentityType.ADMIN
+        is_admin = identity.type in (IdentityType.GLOBAL_ADMIN, IdentityType.APP_ADMIN)
 
         if is_admin:
             # 관리자는 모든 테넌트 조회 가능 (tenant_id가 None이면 전체)
