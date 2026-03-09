@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 
 import httpx
 import structlog
-from azure.identity.aio import DefaultAzureCredential
+
+from app.core.auth.services.auth_provider import TokenProvider
 
 from .azure_client import AzureRestClient
 
@@ -53,10 +54,20 @@ class AzureResourceService(ABC):
         """
         pass
 
+    @abstractmethod
+    async def check_deployment_permission(
+        self, sso_token: str, subscription_id: str
+    ) -> tuple[bool, str | None]:
+        """사용자가 SSO 토큰을 통해 해당 구독에 대해 실제 리소스를 배포할 권한(Contributor 이상)이 있는지 확인합니다."""
+        pass
+
 
 # 2. Implementation
 class AzureResourceServiceImpl(AzureResourceService):
     """Azure ARM REST API 기반 리소스 관리 서비스 구현체"""
+
+    def __init__(self, token_provider: TokenProvider):
+        self.token_provider = token_provider
 
     async def delete_resource_group(
         self, access_token: str, subscription_id: str, resource_group_name: str
@@ -112,19 +123,21 @@ class AzureResourceServiceImpl(AzureResourceService):
                     headers={"Authorization": f"Bearer {access_token}"},
                 )
 
-                # ARM API HEAD 요청은 204나 200이 올 수 있음. 
+                # ARM API HEAD 요청은 204나 200이 올 수 있음.
                 # 404인 경우에만 "존재하지 않음"으로 간주
                 exists = response.status_code != 404
-                
+
                 # 401, 403 등 권한 오류는 로깅하고 '존재함'으로 처리하여 오판 방지
                 if response.status_code >= 400 and response.status_code != 404:
                     logger.warning(
                         "Resource group check unexpected status",
                         status_code=response.status_code,
                         resource_group_name=resource_group_name,
-                        response_body=response.text if hasattr(response, 'text') else ""
+                        response_body=response.text
+                        if hasattr(response, "text")
+                        else "",
                     )
-                
+
                 logger.debug(
                     "Resource group existence check",
                     resource_group_name=resource_group_name,
@@ -165,7 +178,9 @@ class AzureResourceServiceImpl(AzureResourceService):
                 )
 
                 if list_response.status_code == 404:
-                    logger.warning("Function App not found", function_app_name=function_app_name)
+                    logger.warning(
+                        "Function App not found", function_app_name=function_app_name
+                    )
                     return "NOT_FOUND"
 
                 if list_response.status_code != 200:
@@ -218,3 +233,69 @@ class AzureResourceServiceImpl(AzureResourceService):
         except Exception as e:
             logger.error("Function App settings update error", error=str(e))
             return "FAILED"
+
+    async def check_deployment_permission(
+        self, sso_token: str, subscription_id: str
+    ) -> tuple[bool, str | None]:
+        """SSO 토큰을 OBO 토큰으로 교체한 후 ARM API를 호출하여 배포 권한을 검증합니다."""
+        try:
+            # 0. OBO 토큰 획득
+            access_token = await self.token_provider.get_obo_token(sso_token)
+
+            # 1. 권한 조회 API 호출 (Microsoft.Authorization/permissions)
+            url = (
+                f"https://management.azure.com"
+                f"/subscriptions/{subscription_id}"
+                f"/providers/Microsoft.Authorization/permissions"
+                f"?api-version=2022-04-01"
+            )
+            headers = {"Authorization": f"Bearer {access_token}"}
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url, headers=headers)
+
+                if resp.status_code == 403:
+                    return (
+                        False,
+                        "해당 Azure 구독에 접근할 권한이 없습니다. (403 Forbidden)",
+                    )
+
+                if resp.status_code != 200:
+                    logger.error(
+                        "Azure Permission API Failed",
+                        code=resp.status_code,
+                        text=resp.text,
+                    )
+                    return (
+                        False,
+                        f"Azure 권한 확인 중 오류가 발생했습니다. (Code: {resp.status_code})",
+                    )
+
+                permissions = resp.json().get("value", [])
+
+                # 2. 필수 권한(Actions) 보유 여부 확인
+                # 리소스 배포를 위해 최소한 'Microsoft.Resources/deployments/write' 권한이 필요합니다.
+                required_action = "Microsoft.Resources/deployments/write"
+
+                can_deploy = False
+                for p in permissions:
+                    actions = p.get("actions", [])
+                    if (
+                        "*" in actions
+                        or required_action in actions
+                        or "Microsoft.Resources/*" in actions
+                    ):
+                        can_deploy = True
+                        break
+
+                if not can_deploy:
+                    return (
+                        False,
+                        "Azure 구독에 대한 '기여자(Contributor)' 이상의 권한이 부족합니다. 구독 소유자에게 권한 할당을 요청하세요.",
+                    )
+
+                return True, None
+
+        except Exception as e:
+            logger.error("Azure RBAC Check System Error", error=str(e))
+            return False, f"시스템 오류로 배포 권한을 확인할 수 없습니다: {str(e)}"
