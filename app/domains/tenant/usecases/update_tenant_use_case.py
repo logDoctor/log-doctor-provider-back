@@ -22,23 +22,36 @@ class UpdateTenantUseCase:
     async def execute(self, identity: Identity, payload: UpdateTenantRequest) -> GetTenantStatusResponse:
         tid = identity.tenant_id
 
+        if not identity.is_global_admin:
+            raise UnauthorizedException("ACCESS_DENIED|NOT_ASSIGNED|테넌트 설정값을 변경할 권한이 없습니다.")
+
         tenant_entity = await self.repository.get_by_id(tid)
         if not tenant_entity:
             raise NotFoundException("TENANT_NOT_REGISTERED|등록된 테넌트 정보가 없습니다.")
 
-        if payload.privileged_accounts:
-            current_user_email = identity.email
-            privileged_accounts = tenant_entity.privileged_accounts
+        if payload.privileged_accounts is not None:
+            account_map = {a["email"]: a["user_id"] for a in tenant_entity.privileged_accounts}
             
-            if not identity.is_global_admin and current_user_email not in privileged_accounts:
-                raise UnauthorizedException("ACCESS_DENIED|NOT_ASSIGNED|테넌트 설정값을 변경할 권한이 없거나, 등록된 운영자가 아닙니다.")
+            for p in payload.privileged_accounts:
+                if p.user_id:
+                    account_map[p.email] = p.user_id
+                elif p.email not in account_map:
+                    account_map[p.email] = None
+            
+            account_map[identity.email] = identity.id
+            
+            emails_to_resolve = [email for email, uid in account_map.items() if not uid]
+            
+            if emails_to_resolve:
+                resolved_accounts = await self.graph_service.resolve_user_ids(tid, emails_to_resolve)
+                for ra in resolved_accounts:
+                    account_map[ra["email"]] = ra["user_id"]
+            
+            for email, user_id in account_map.items():
+                tenant_entity.add_privileged_account(email, user_id)
 
-            tenant_entity.update_privileged_accounts(
-                new_accounts=payload.privileged_accounts, 
-                requester_email=current_user_email
-            )
-            
-            await self.graph_service.assign_users_to_app(tid, tenant_entity.privileged_accounts)
+            ids_to_assign = [uid for uid in account_map.values() if uid]
+            await self.graph_service.assign_users_to_app(tid, ids_to_assign)
 
             saved_tenant_entity = await self.repository.upsert(tenant_entity)
         else:
@@ -49,5 +62,3 @@ class UpdateTenantUseCase:
             registered_at=saved_tenant_entity.registered_at,
             privileged_accounts=saved_tenant_entity.privileged_accounts
         )
-
-    # _prepare_privileged_accounts 메서드를 삭제됨 (도메인 엔티티로 역할 위임)

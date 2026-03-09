@@ -1,4 +1,4 @@
-from fastapi import Depends, Query
+from fastapi import Depends
 from fastapi_restful.cbv import cbv
 
 from app.core.auth.guards import get_current_identity
@@ -7,7 +7,6 @@ from app.core.routing import APIRouter
 
 from .dependencies import (
     get_register_tenant_use_case,
-    get_search_tenant_users_use_case,
     get_tenant_status_use_case,
     get_update_tenant_use_case,
 )
@@ -17,21 +16,24 @@ from .schemas import (
     RegisterTenantResponse,
     UpdateTenantRequest,
 )
-from .usecases import (
-    GetTenantStatusUseCase,
-    RegisterTenantUseCase,
-    UpdateTenantUseCase,
-)
+from .usecases import GetTenantStatusUseCase, RegisterTenantUseCase, UpdateTenantUseCase
 
 router = APIRouter(prefix="/tenants", tags=["Tenant"])
+
 
 @cbv(router)
 class TenantRouter:
     def __init__(
         self,
-        get_tenant_status_use_case: GetTenantStatusUseCase = Depends(get_tenant_status_use_case),
-        register_tenant_use_case: RegisterTenantUseCase = Depends(get_register_tenant_use_case),
-        update_tenant_use_case: UpdateTenantUseCase = Depends(get_update_tenant_use_case),
+        get_tenant_status_use_case: GetTenantStatusUseCase = Depends(
+            get_tenant_status_use_case
+        ),
+        register_tenant_use_case: RegisterTenantUseCase = Depends(
+            get_register_tenant_use_case
+        ),
+        update_tenant_use_case: UpdateTenantUseCase = Depends(
+            get_update_tenant_use_case
+        ),
     ):
         self.get_tenant_status_use_case = get_tenant_status_use_case
         self.register_tenant_use_case = register_tenant_use_case
@@ -62,9 +64,11 @@ class TenantRouter:
     async def register_tenant(
         self,
         request: RegisterTenantRequest,
-        identity: Identity = Depends(get_current_identity)
+        identity: Identity = Depends(get_current_identity),
     ):
         """
         SSO 헤더 정보를 바탕으로 명시적으로 테넌트를 생성(가입)합니다.
         """
-        return await self.register_tenant_use_case.execute(identity, request.privileged_accounts)
+        return await self.register_tenant_use_case.execute(
+            identity, request.privileged_accounts
+        )

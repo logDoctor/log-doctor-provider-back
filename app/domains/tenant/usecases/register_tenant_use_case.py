@@ -4,7 +4,7 @@ from app.core.auth.models import Identity
 from app.core.auth.services.graph_service import GraphService
 from app.domains.tenant.models import Tenant
 from app.domains.tenant.repository import TenantRepository
-from app.domains.tenant.schemas import RegisterTenantResponse
+from app.domains.tenant.schemas import PrivilegedAccountRequest, RegisterTenantResponse
 
 logger = structlog.get_logger()
 
@@ -19,29 +19,29 @@ class RegisterTenantUseCase:
         self.repository = repository
         self.graph_service = graph_service
 
-    async def execute(self, identity: Identity, privileged_accounts: list[str] = None) -> RegisterTenantResponse:
+    async def execute(self, identity: Identity, privileged_accounts: list[PrivilegedAccountRequest] = None) -> RegisterTenantResponse:
         tid = identity.tenant_id
 
         tenant_entity = await self.repository.get_by_id(tid)
 
-        # 멱등성 처리: 이미 registered_at이 있다는 것은 가입 프로세스가 이미 완료되었음을 의미
         if tenant_entity and tenant_entity.is_registered():
-            logger.info("Tenant already registered, returning existing status", tid=tid)
             return RegisterTenantResponse(
                 tenant_id=tenant_entity.tenant_id,
                 registered_at=tenant_entity.registered_at,
                 privileged_accounts=tenant_entity.privileged_accounts
             )
 
-        prepared_privileged_accounts = self._prepare_privileged_accounts(identity.email, privileged_accounts)
-
-        # 관리자가 처음 등록할 때 자신 및 추가 운영자들을 앱에 할당 (Graph API)
-        await self.graph_service.assign_users_to_app(tid, prepared_privileged_accounts)
+        req_emails = [a.email for a in privileged_accounts] if privileged_accounts else []
+        prepared_emails = self._prepare_privileged_accounts(identity.email, req_emails)
+        resolved_accounts = await self.graph_service.resolve_user_ids(tid, prepared_emails)
 
         tenant_entity = Tenant.register(tid)
-
-        for account in prepared_privileged_accounts:
-            tenant_entity.add_privileged_account(account)
+        
+        for account in resolved_accounts:
+            tenant_entity.add_privileged_account(account["email"], account["user_id"])
+        
+        ids_to_assign = [a["user_id"] for a in resolved_accounts]
+        await self.graph_service.assign_users_to_app(tid, ids_to_assign)
         
         saved_tenant_entity = await self.repository.upsert(tenant_entity)
 
