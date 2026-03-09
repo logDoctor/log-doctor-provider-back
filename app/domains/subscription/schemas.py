@@ -14,3 +14,5 @@ class SubscriptionSetupResponse(BaseModel):
     bicep_url: str
     parameters: dict
     portal_link: str
+    has_deployment_permission: bool = True
+    reason: str | None = None

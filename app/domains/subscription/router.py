@@ -20,8 +20,12 @@ router = APIRouter(prefix="/subscriptions", tags=["Subscription"])
 class SubscriptionRouter:
     def __init__(
         self,
-        get_subscriptions_use_case: GetSubscriptionsUseCase = Depends(get_subscriptions_use_case),
-        get_subscription_setup_info_use_case: GetSubscriptionSetupInfoUseCase = Depends(get_subscription_setup_info_use_case),
+        get_subscriptions_use_case: GetSubscriptionsUseCase = Depends(
+            get_subscriptions_use_case
+        ),
+        get_subscription_setup_info_use_case: GetSubscriptionSetupInfoUseCase = Depends(
+            get_subscription_setup_info_use_case
+        ),
     ):
         self.get_subscriptions_use_case = get_subscriptions_use_case
         self.get_subscription_setup_info_use_case = get_subscription_setup_info_use_case
@@ -41,6 +45,7 @@ class SubscriptionRouter:
         self,
         subscription_id: str,
         request: Request,
+        identity: Identity = Depends(get_current_identity),
     ):
         # Azure Container Apps 환경 또는 운영 환경에서는 항상 HTTPS를 사용하도록 강제합니다.
         scheme = request.url.scheme
@@ -49,5 +54,5 @@ class SubscriptionRouter:
 
         base_url = f"{scheme}://{request.url.netloc}"
         return await self.get_subscription_setup_info_use_case.execute(
-            subscription_id, base_url
+            subscription_id, base_url, identity
         )

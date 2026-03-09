@@ -1,9 +1,11 @@
 from fastapi import Depends
 
-from app.domains.package.dependencies import get_package_use_case
-from app.domains.package.usecases import GetPackageUseCase
+from app.domains.package.dependencies import get_agent_package_repository
+from app.domains.package.repository import AgentPackageRepository
 from app.domains.tenant.dependencies import get_tenant_repository
 from app.domains.tenant.repository import TenantRepository
+from app.infra.external.azure.azure_resource_service import AzureResourceService
+from app.infra.external.azure.dependencies import get_azure_resource_service
 
 from .repository import AzureSubscriptionRepository, SubscriptionRepository
 from .usecases import GetSubscriptionSetupInfoUseCase, GetSubscriptionsUseCase
@@ -21,6 +23,7 @@ def get_subscriptions_use_case(
 
 
 def get_subscription_setup_info_use_case(
-    package_use_case: GetPackageUseCase = Depends(get_package_use_case),
+    repository: AgentPackageRepository = Depends(get_agent_package_repository),
+    azure_service: AzureResourceService = Depends(get_azure_resource_service),
 ) -> GetSubscriptionSetupInfoUseCase:
-    return GetSubscriptionSetupInfoUseCase(package_use_case)
+    return GetSubscriptionSetupInfoUseCase(repository, azure_service)

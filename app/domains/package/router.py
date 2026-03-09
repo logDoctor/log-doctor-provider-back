@@ -11,7 +11,6 @@ from .dependencies import (
     get_package_use_case,
     get_upload_package_use_case,
 )
-from .models import PackageInfo
 from .usecases import (
     DownloadPackageUseCase,
     GetPackageUseCase,
