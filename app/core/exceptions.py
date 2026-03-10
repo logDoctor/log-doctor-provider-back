@@ -1,5 +1,9 @@
 class LogDoctorException(Exception):
-    """Log Doctor 애플리케이션의 기본 예외 클래스입니다."""
+    """Log Doctor 애플리케이션의 기본 예외 클래스입니다.
+
+    # TODO: [i18n] 메시지 국제화를 고려해야 합니다. 리터럴 문자열 대신 메시지 키를 사용하고
+    # 미들웨어나 컨텍스트 매니저를 통해 Accept-Language 헤더 기반 번역을 수행하도록 개선이 필요합니다.
+    """
 
     def __init__(
         self, message: str, code: str = "INTERNAL_ERROR", status_code: int = 500
@@ -43,3 +47,10 @@ class ConflictException(LogDoctorException):
 
     def __init__(self, message: str = "Resource already exists or conflict occurred"):
         super().__init__(message, code="CONFLICT", status_code=409)
+
+
+class InternalServerException(LogDoctorException):
+    """서버 내부 오류 발생 시 발생하는 예외입니다."""
+
+    def __init__(self, message: str = "Internal server error"):
+        super().__init__(message, code="INTERNAL_ERROR", status_code=500)

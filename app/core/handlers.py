@@ -43,7 +43,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={
             "error": {
                 "code": "VALIDATION_ERROR",
-                "message": "요청 데이터 검증에 실패했습니다.",
+                "message": "Request data validation failed.",
                 "details": errors,
                 "path": request.url.path,
             }
@@ -56,13 +56,13 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     처리되지 않은 예외를 처리하고 500 내부 서버 오류를 반환합니다.
     """
     # 실제 환경에서는 여기서 예외 스택 트레이스를 로깅합니다.
-    print(f"처리되지 않은 예외: {exc}")
+    print(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=500,
         content={
             "error": {
                 "code": "INTERNAL_SERVER_ERROR",
-                "message": "예측하지 못한 오류가 발생했습니다.",
+                "message": "An unexpected error occurred.",
                 "path": request.url.path,
             }
         },

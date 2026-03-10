@@ -48,7 +48,7 @@ app = FastAPI(
     title="Log Doctor Backend",
     version="1.0.0",
     lifespan=lifespan,
-    route_class=ExcludeNoneRoute
+    route_class=ExcludeNoneRoute,
 )
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])

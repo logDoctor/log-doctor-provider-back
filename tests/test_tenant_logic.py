@@ -16,7 +16,7 @@ async def test_register_tenant_success():
     mock_repo = MagicMock()
     mock_repo.get_by_id = AsyncMock(return_value=None)
     mock_repo.upsert = AsyncMock(side_effect=lambda x: x)
-    
+
     mock_graph = MagicMock()
     use_case = RegisterTenantUseCase(repository=mock_repo, graph_service=mock_graph)
     identity = Identity(
@@ -26,7 +26,7 @@ async def test_register_tenant_success():
         email="test@user.com",
         roles=[],
         tenant_id="new-tenant-id",
-        sso_token="test_token"
+        sso_token="test_token",
     )
 
     # Act
@@ -46,13 +46,15 @@ async def test_get_tenant_status_registered():
     tenant_obj = Tenant.register("existing-tenant-id")
     tenant_obj.is_active = True
     tenant_obj.registered_at = now_str
-    
+
     mock_repo = MagicMock()
     mock_repo.get_by_id = AsyncMock(return_value=tenant_obj)
-    
+
     mock_token = MagicMock()
     mock_token.get_obo_token = AsyncMock(return_value="mock_token")
-    use_case = GetTenantStatusUseCase(tenant_repository=mock_repo, token_provider=mock_token)
+    use_case = GetTenantStatusUseCase(
+        tenant_repository=mock_repo, token_provider=mock_token
+    )
 
     identity = Identity(
         type=IdentityType.CLIENT_AGENT,
@@ -61,7 +63,7 @@ async def test_get_tenant_status_registered():
         email="test@user.com",
         roles=[],
         tenant_id="existing-tenant-id",
-        sso_token="test_token"
+        sso_token="test_token",
     )
 
     # Act

@@ -1,4 +1,3 @@
-import logging
 import sys
 
 import structlog
@@ -37,8 +36,15 @@ def setup_logging():
     )
 
     # 표준 라이브러리 로깅 가로채기
+    import logging
+
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
         level=logging.INFO,
     )
+
+
+def get_logger(name: str) -> structlog.BoundLogger:
+    """지정된 이름의 로거를 반환합니다."""
+    return structlog.get_logger(name)
