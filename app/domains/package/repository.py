@@ -29,13 +29,8 @@ class AgentPackageRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_latest(self) -> PackageInfo | None:
-        """가장 최신 패키지를 조회합니다."""
-        pass
-
-    @abstractmethod
     async def get_by_version(self, version: str) -> PackageInfo | None:
-        """특정 버전의 패키지를 조회합니다."""
+        """특정 버전의 패키지를 조회합니다. 'latest' 입력 시 가장 최신 버전을 반환합니다."""
         pass
 
     @abstractmethod
@@ -72,10 +67,9 @@ class FileSystemAgentPackageRepository(AgentPackageRepository):
     async def list_all(self) -> list[PackageInfo]:
         return await run_in_threadpool(self._list_sync)
 
-    async def get_latest(self) -> PackageInfo | None:
-        return await run_in_threadpool(self._get_latest_sync)
-
     async def get_by_version(self, version: str) -> PackageInfo | None:
+        if version == "latest":
+            return await run_in_threadpool(self._get_latest_sync)
         return await run_in_threadpool(self._get_by_version_sync, version)
 
     async def download(self, filename: str) -> str:
@@ -118,7 +112,10 @@ class FileSystemAgentPackageRepository(AgentPackageRepository):
             return None
         # semver 기준 최신 버전 선택
         packages = [self._get_package_info(f) for f in filenames]
-        packages.sort(key=lambda p: [int(x) for x in p.version.split(".") if x.isdigit()], reverse=True)
+        packages.sort(
+            key=lambda p: [int(x) for x in p.version.split(".") if x.isdigit()],
+            reverse=True,
+        )
         return packages[0]
 
     def _get_by_version_sync(self, version: str) -> PackageInfo | None:
@@ -197,15 +194,17 @@ class BlobStorageAgentPackageRepository(AgentPackageRepository):
         packages.sort(key=lambda x: x.filename, reverse=True)
         return packages
 
-    async def get_latest(self) -> PackageInfo | None:
-        packages = await self.list_all()
-        if not packages:
-            return None
-        # semver 기준 최신 버전 선택
-        packages.sort(key=lambda p: [int(x) for x in p.version.split(".") if x.isdigit()], reverse=True)
-        return packages[0]
-
     async def get_by_version(self, version: str) -> PackageInfo | None:
+        if version == "latest":
+            packages = await self.list_all()
+            if not packages:
+                return None
+            packages.sort(
+                key=lambda p: [int(x) for x in p.version.split(".") if x.isdigit()],
+                reverse=True,
+            )
+            return packages[0]
+
         container_client = await self._get_container_client()
         async for blob in container_client.list_blobs():
             if blob.name.endswith(".zip") and version in blob.name:

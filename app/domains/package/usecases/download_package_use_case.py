@@ -15,14 +15,11 @@ class DownloadPackageUseCase:
     async def execute(self, version: str = "latest"):
         """업로드된 패키지 중 특정 버전 혹은 가장 최신 버전을 찾아 반환합니다."""
         try:
-            if version == "latest":
-                package_info = await self.repository.get_latest()
-            else:
-                package_info = await self.repository.get_by_version(version)
+            package_info = await self.repository.get_by_version(version)
 
             if not package_info:
                 raise HTTPException(
-                    status_code=404, detail="요청하신 버전의 패키지를 찾을 수 없습니다."
+                    status_code=404, detail="Requested package version not found."
                 )
 
             result = await self.repository.download(package_info.filename)
@@ -49,10 +46,10 @@ class DownloadPackageUseCase:
         except FileNotFoundError:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"요청하신 패키지 파일을 찾을 수 없습니다: {filename}",
+                detail=f"Requested package file not found: {filename}",
             ) from None
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"패키지 다운로드 중 오류가 발생했습니다: {str(e)}",
+                detail=f"An error occurred while downloading the package: {str(e)}",
             ) from e

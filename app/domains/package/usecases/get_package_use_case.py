@@ -1,5 +1,6 @@
 from ..models import PackageInfo
 from ..repository import AgentPackageRepository
+from ..schemas import GetPackageResponse
 
 
 class GetPackageUseCase:
@@ -10,9 +11,9 @@ class GetPackageUseCase:
     def __init__(self, repository: AgentPackageRepository):
         self.repository = repository
 
-    async def execute(self, version: str = "latest") -> PackageInfo | None:
+    async def execute(self, version: str = "latest") -> GetPackageResponse | None:
         """업로드된 패키지 중 특정 버전 혹은 가장 최신 버전을 반환합니다."""
-        if version == "latest":
-            return await self.repository.get_latest()
-
-        return await self.repository.get_by_version(version)
+        result = await self.repository.get_by_version(version)
+        if not result:
+            return None
+        return GetPackageResponse(**result.model_dump())
