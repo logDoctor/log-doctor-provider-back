@@ -74,7 +74,7 @@ class EntraIDTokenProvider(TokenProvider):
         except Exception as e:
             logger.error("MSAL OBO system error", error=str(e))
             raise UnauthorizedException(
-                "인증 서비스 연결 중 오류가 발생했습니다."
+                "An error occurred while connecting to the authentication service."
             ) from None
 
         if "access_token" in result:
@@ -107,7 +107,7 @@ class EntraIDTokenProvider(TokenProvider):
             scopes=final_scopes,
         )
         raise UnauthorizedException(
-            f"앱 전용 토큰 획득에 실패했습니다: {result.get('error')}"
+            f"Failed to acquire app-only token: {result.get('error')}"
         )
 
     def _is_already_management_token(self, payload: dict) -> bool:

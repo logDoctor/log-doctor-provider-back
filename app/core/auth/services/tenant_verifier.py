@@ -10,11 +10,11 @@ class TenantVerifier:
         일치하지 않을 경우 AuthError를 발생시킵니다.
         """
         if not token_tid or not req_tid:
-            raise AuthError("테넌트 ID 검증을 위한 정보가 누락되었습니다.")
+            raise AuthError("Information for tenant ID verification is missing.")
 
         if token_tid != req_tid:
             raise AuthError(
-                f"테넌트 ID가 일치하지 않습니다. (Token: {token_tid} vs Request: {req_tid})"
+                f"Tenant ID mismatch. (Token: {token_tid} vs Request: {req_tid})"
             )
 
         return token_tid

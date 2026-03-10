@@ -12,9 +12,6 @@ async def get_sso_token(
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="인증 헤더가 누락되었습니다.",
+            detail="Authentication header is missing.",
         )
     return credentials.credentials
-
-
-

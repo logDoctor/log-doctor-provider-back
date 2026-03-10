@@ -1,12 +1,11 @@
 from .dependencies import (
-    get_admin_verifier,
     get_identity_extractor,
     get_jwt_service,
     get_tenant_verifier,
     get_token_provider,
 )
 from .guards import (
-    check_admin,
+    admin_verify_guard,
     check_tenant,
     get_current_identity,
     get_sso_token,
@@ -14,12 +13,11 @@ from .guards import (
 from .models import Identity, IdentityType
 
 __all__ = [
-    "check_admin",
+    "admin_verify_guard",
     "check_tenant",
     "get_sso_token",
     "get_current_identity",
     "get_identity_extractor",
-    "get_admin_verifier",
     "get_tenant_verifier",
     "get_jwt_service",
     "get_token_provider",

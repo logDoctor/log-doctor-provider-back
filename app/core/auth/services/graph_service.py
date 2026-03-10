@@ -99,7 +99,7 @@ class GraphService:
                     "Graph API 403 Forbidden during user search", tenant_id=tenant_id
                 )
                 raise UnauthorizedException(
-                    "CONSENT_REQUIRED|테넌트에서 사용자 정보를 검색할 권한이 없습니다."
+                    "CONSENT_REQUIRED|Unauthorized to search user information in the tenant."
                 )
 
             if response.status_code != 200:
@@ -110,7 +110,7 @@ class GraphService:
                     tenant_id=tenant_id,
                 )
                 raise Exception(
-                    f"사용자 검색 실패: {response.status_code} {response.text}"
+                    f"User search failed: {response.status_code} {response.text}"
                 )
 
             response_json = response.json()
@@ -153,14 +153,14 @@ class GraphService:
                 tenant_id=tenant_id,
             )
             raise UnauthorizedException(
-                f"CONSENT_REQUIRED|Graph API 권한 부족 (Directory.Read.All): {sp_res.text}"
+                f"CONSENT_REQUIRED|Insufficient Graph API permissions (Directory.Read.All): {sp_res.text}"
             )
         if sp_res.status_code != 200 or not sp_res.json().get("value"):
             logger.error(
                 "Service Principal not found for this app", tenant_id=tenant_id
             )
             raise UnauthorizedException(
-                "CONSENT_REQUIRED|앱의 Service Principal을 찾을 수 없습니다. 테넌트 등록이 필요합니다."
+                "CONSENT_REQUIRED|Service Principal for the app not found. Tenant registration is required."
             )
         return sp_res.json()["value"][0]["id"]
 
@@ -197,7 +197,7 @@ class GraphService:
                     if isinstance(res, Exception):
                         raise res
                     raise UnauthorizedException(
-                        f"NOT_FOUND|운영자 계정 정보를 찾을 수 없습니다: {email}"
+                        f"NOT_FOUND|Operator account information not found: {email}"
                     )
 
         return results
@@ -215,7 +215,7 @@ class GraphService:
                 "Graph API 403 Forbidden during user lookup", tenant_id=tenant_id
             )
             raise UnauthorizedException(
-                f"CONSENT_REQUIRED|Graph API 권한 부족 (User.Read.All): {user_res.text}"
+                f"CONSENT_REQUIRED|Insufficient Graph API permissions (User.Read.All): {user_res.text}"
             )
         if user_res.status_code != 200:
             logger.error(
@@ -223,9 +223,7 @@ class GraphService:
                 identifier=user_identifier,
                 tenant_id=tenant_id,
             )
-            raise UnauthorizedException(
-                f"NOT_FOUND|사용자를 찾을 수 없습니다: {user_identifier}"
-            )
+            raise UnauthorizedException(f"NOT_FOUND|User not found: {user_identifier}")
         return user_res.json()["id"]
 
     async def _execute_role_assignment(
@@ -256,7 +254,7 @@ class GraphService:
         logger.error("Failed to assign user", error=res.text, tenant_id=tenant_id)
         if res.status_code in [401, 403]:
             raise UnauthorizedException(
-                f"CONSENT_REQUIRED|Graph API 권한 부족 (AppRoleAssignment.ReadWrite.All): {res.text}"
+                f"CONSENT_REQUIRED|Insufficient Graph API permissions (AppRoleAssignment.ReadWrite.All): {res.text}"
             )
 
-        raise UnauthorizedException(f"INTERNAL_ERROR|사용자 할당 실패: {res.text}")
+        raise UnauthorizedException(f"INTERNAL_ERROR|Failed to assign user: {res.text}")

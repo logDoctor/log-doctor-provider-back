@@ -38,13 +38,17 @@ class JwtService:
         if len(parts) != 3:
             return {}
         payload = self.decode_base64_json(parts[1])
-        
+
         if payload and "exp" in payload:
             expired_time = int(payload["exp"])
             if expired_time < time.time():
-                get_logger().warning("JWT has expired in extract_payload", exp=expired_time)
-                raise UnauthorizedException("AUTH_REQUIRED|인증 토큰이 만료되었습니다. 다시 로그인해주세요.")
-                
+                get_logger().warning(
+                    "JWT has expired in extract_payload", exp=expired_time
+                )
+                raise UnauthorizedException(
+                    "AUTH_REQUIRED|Authentication token has expired. Please login again."
+                )
+
         return payload
 
     def decode_and_verify(self, token: str) -> dict | None:
@@ -54,19 +58,20 @@ class JwtService:
         """
         try:
             signing_key = self.jwk_client.get_signing_key_from_jwt(token)
-            
+
             # Teams SSO 토큰의 Audience는 보통 api://<client_id> 형태입니다.
             audience = f"api://{settings.CLIENT_ID}"
-            
+
             payload = jwt.decode(
                 token,
                 signing_key.key,
                 algorithms=["RS256"],
                 audience=[audience, settings.CLIENT_ID],
-                options={"verify_exp": True, "verify_aud": True}
+                options={"verify_exp": True, "verify_aud": True},
             )
             return payload
         except Exception as e:
             from structlog import get_logger
+
             get_logger().warning("JWT verification failed", error=str(e))
             return None
