@@ -4,7 +4,7 @@ from app.core.auth.models import Identity
 from app.core.auth.services.graph_service import GraphService
 from app.core.exceptions import NotFoundException, UnauthorizedException
 from app.domains.tenant.repository import TenantRepository
-from app.domains.tenant.schemas import GetTenantStatusResponse, UpdateTenantRequest
+from app.domains.tenant.schemas import UpdateTenantRequest, UpdateTenantResponse
 
 logger = structlog.get_logger()
 
@@ -19,34 +19,44 @@ class UpdateTenantUseCase:
         self.repository = repository
         self.graph_service = graph_service
 
-    async def execute(self, identity: Identity, payload: UpdateTenantRequest) -> GetTenantStatusResponse:
+    async def execute(
+        self, identity: Identity, payload: UpdateTenantRequest
+    ) -> UpdateTenantResponse:
         tid = identity.tenant_id
 
-        if not identity.is_global_admin:
-            raise UnauthorizedException("ACCESS_DENIED|NOT_ASSIGNED|테넌트 설정값을 변경할 권한이 없습니다.")
+        if not identity.is_admin():
+            raise UnauthorizedException(
+                "ACCESS_DENIED|NOT_ASSIGNED|You do not have permission to modify tenant settings."
+            )
 
         tenant_entity = await self.repository.get_by_id(tid)
         if not tenant_entity:
-            raise NotFoundException("TENANT_NOT_REGISTERED|등록된 테넌트 정보가 없습니다.")
+            raise NotFoundException(
+                "TENANT_NOT_REGISTERED|Tenant information not found."
+            )
 
         if payload.privileged_accounts is not None:
-            account_map = {a["email"]: a["user_id"] for a in tenant_entity.privileged_accounts}
-            
+            account_map = {
+                a["email"]: a["user_id"] for a in tenant_entity.privileged_accounts
+            }
+
             for p in payload.privileged_accounts:
                 if p.user_id:
                     account_map[p.email] = p.user_id
                 elif p.email not in account_map:
                     account_map[p.email] = None
-            
+
             account_map[identity.email] = identity.id
-            
+
             emails_to_resolve = [email for email, uid in account_map.items() if not uid]
-            
+
             if emails_to_resolve:
-                resolved_accounts = await self.graph_service.resolve_user_ids(tid, emails_to_resolve)
+                resolved_accounts = await self.graph_service.resolve_user_ids(
+                    tid, emails_to_resolve
+                )
                 for ra in resolved_accounts:
                     account_map[ra["email"]] = ra["user_id"]
-            
+
             for email, user_id in account_map.items():
                 tenant_entity.add_privileged_account(email, user_id)
 
@@ -57,8 +67,8 @@ class UpdateTenantUseCase:
         else:
             saved_tenant_entity = tenant_entity
 
-        return GetTenantStatusResponse(
+        return UpdateTenantResponse(
             tenant_id=saved_tenant_entity.tenant_id,
             registered_at=saved_tenant_entity.registered_at,
-            privileged_accounts=saved_tenant_entity.privileged_accounts
+            privileged_accounts=saved_tenant_entity.privileged_accounts,
         )

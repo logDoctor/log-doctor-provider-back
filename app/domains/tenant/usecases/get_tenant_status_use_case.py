@@ -22,17 +22,17 @@ class GetTenantStatusUseCase:
         tenant_entity = await self.tenant_repository.get_by_id(tenant_id)
 
         if not tenant_entity:
-            has_privileged_role = identity.is_global_admin or (
+            has_privileged_role = identity.is_admin() or (
                 identity.roles and len(identity.roles) > 0
             )
             if not has_privileged_role:
                 raise UnauthorizedException(
-                    "NOT_ASSIGNED|ACCESS_DENIED|로그닥터 앱을 사용할 권한이 없습니다. "
-                    "조직 관리자에게 문의하여 '앱 역할'을 할당받으세요."
+                    "NOT_ASSIGNED|ACCESS_DENIED|You do not have permission to use LogDoctor. "
+                    "Please contact your administrator to be assigned an 'App Role'."
                 )
 
             raise NotFoundException(
-                "TENANT_NOT_REGISTERED|등록된 조직 정보가 없습니다. 조직 관리자 계정으로 로그인이 필요합니다."
+                "TENANT_NOT_REGISTERED|Tenant is not registered. Please sign in with a tenant administrator account."
             )
 
         return GetTenantStatusResponse(

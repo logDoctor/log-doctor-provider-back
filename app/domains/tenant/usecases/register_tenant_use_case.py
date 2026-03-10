@@ -19,7 +19,11 @@ class RegisterTenantUseCase:
         self.repository = repository
         self.graph_service = graph_service
 
-    async def execute(self, identity: Identity, privileged_accounts: list[PrivilegedAccountRequest] = None) -> RegisterTenantResponse:
+    async def execute(
+        self,
+        identity: Identity,
+        privileged_accounts: list[PrivilegedAccountRequest] = None,
+    ) -> RegisterTenantResponse:
         tid = identity.tenant_id
 
         tenant_entity = await self.repository.get_by_id(tid)
@@ -28,30 +32,36 @@ class RegisterTenantUseCase:
             return RegisterTenantResponse(
                 tenant_id=tenant_entity.tenant_id,
                 registered_at=tenant_entity.registered_at,
-                privileged_accounts=tenant_entity.privileged_accounts
+                privileged_accounts=tenant_entity.privileged_accounts,
             )
 
-        req_emails = [a.email for a in privileged_accounts] if privileged_accounts else []
+        req_emails = (
+            [a.email for a in privileged_accounts] if privileged_accounts else []
+        )
         prepared_emails = self._prepare_privileged_accounts(identity.email, req_emails)
-        resolved_accounts = await self.graph_service.resolve_user_ids(tid, prepared_emails)
+        resolved_accounts = await self.graph_service.resolve_user_ids(
+            tid, prepared_emails
+        )
 
         tenant_entity = Tenant.register(tid)
-        
+
         for account in resolved_accounts:
             tenant_entity.add_privileged_account(account["email"], account["user_id"])
-        
+
         ids_to_assign = [a["user_id"] for a in resolved_accounts]
         await self.graph_service.assign_users_to_app(tid, ids_to_assign)
-        
+
         saved_tenant_entity = await self.repository.upsert(tenant_entity)
 
         return RegisterTenantResponse(
             tenant_id=saved_tenant_entity.tenant_id,
             registered_at=saved_tenant_entity.registered_at,
-            privileged_accounts=saved_tenant_entity.privileged_accounts
+            privileged_accounts=saved_tenant_entity.privileged_accounts,
         )
 
-    def _prepare_privileged_accounts(self, email: str, additional_accounts: list[str]) -> list[str]:
+    def _prepare_privileged_accounts(
+        self, email: str, additional_accounts: list[str]
+    ) -> list[str]:
         """본인 이메일을 포함하고 중복을 제거한 운영자 목록을 반환합니다."""
         accounts = set(additional_accounts)
         accounts.add(email)

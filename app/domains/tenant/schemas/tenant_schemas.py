@@ -27,6 +27,13 @@ class RegisterTenantRequest(BaseModel):
         ]
 
 
+class RegisterTenantResponse(BaseModel):
+    tenant_id: str
+    registered_at: datetime | None = None
+    privileged_accounts: list[PrivilegedAccountResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+
 class UpdateTenantRequest(BaseModel):
     privileged_accounts: list[PrivilegedAccountRequest] | None = None
 
@@ -41,17 +48,17 @@ class UpdateTenantRequest(BaseModel):
         ]
 
 
+class UpdateTenantResponse(BaseModel):
+    tenant_id: str
+    registered_at: datetime | None = None
+    privileged_accounts: list[PrivilegedAccountResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+
 class GetTenantStatusResponse(BaseModel):
     tenant_id: str
     registered_at: datetime | None = None
     privileged_accounts: list[PrivilegedAccountResponse] = []
-
     model_config = ConfigDict(from_attributes=True)
-
-
-class RegisterTenantResponse(BaseModel):
-    tenant_id: str
-    registered_at: datetime | None = None
     privileged_accounts: list[PrivilegedAccountResponse] = []
-
     model_config = ConfigDict(from_attributes=True)

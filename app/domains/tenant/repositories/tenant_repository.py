@@ -4,10 +4,9 @@ from azure.cosmos.aio import ContainerProxy
 
 from app.infra.db.cosmos import cosmos_repository
 
-from .models import Tenant
+from ..models import Tenant
 
 
-# 1. Abstract Interface
 class TenantRepository(ABC):
     @abstractmethod
     async def get_by_id(self, tenant_id: str) -> Tenant | None:
@@ -20,7 +19,6 @@ class TenantRepository(ABC):
         pass
 
 
-# 2. Concrete Implementation (Cosmos DB)
 @cosmos_repository(map_to=Tenant)
 class AzureTenantRepository(TenantRepository):
     def __init__(self, container: ContainerProxy):
