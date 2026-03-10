@@ -1,14 +1,13 @@
 import httpx
 
 
-class AzureRestClient:
+class AzureArmClient:
     """
     Azure ARM REST API Client Factory.
     Provides authenticated httpx client sessions.
     """
 
-    @staticmethod
-    def get_client(access_token: str) -> httpx.AsyncClient:
+    def get_client(self, access_token: str) -> httpx.AsyncClient:
         return httpx.AsyncClient(
             base_url="https://management.azure.com",
             headers={
