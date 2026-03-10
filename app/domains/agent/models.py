@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
 
+from app.core.exceptions import ConflictException
+
 
 class AgentStatus(str, Enum):
     INITIALIZING = "INITIALIZING"
@@ -23,6 +25,7 @@ class Agent:
     location: str
     environment: str
     runtime_env: dict
+    storage_account_name: str
     client_ip: str
     agent_id: str
     version: str
@@ -41,10 +44,11 @@ class Agent:
         location: str,
         environment: str,
         runtime_env: dict,
+        storage_account_name: str,
         client_ip: str,
         agent_id: str,
         version: str,
-        capabilities: list[str]
+        capabilities: list[str],
     ) -> "Agent":
         """최초 에이전트 도메인 객체를 생성하는 팩토리 메서드입니다."""
         now = datetime.now(UTC).isoformat()
@@ -57,6 +61,7 @@ class Agent:
             location=location,
             environment=environment,
             runtime_env=runtime_env,
+            storage_account_name=storage_account_name,
             client_ip=client_ip,
             agent_id=agent_id,
             version=version,
@@ -79,6 +84,7 @@ class Agent:
             location=data.get("location", ""),
             environment=data.get("environment", ""),
             runtime_env=data.get("runtime_env", {}),
+            storage_account_name=data.get("storage_account_name", ""),
             client_ip=data.get("client_ip", ""),
             agent_id=data["agent_id"],
             version=data["version"],
@@ -100,6 +106,7 @@ class Agent:
             "location": self.location,
             "environment": self.environment,
             "runtime_env": self.runtime_env,
+            "storage_account_name": self.storage_account_name,
             "client_ip": self.client_ip,
             "agent_id": self.agent_id,
             "version": self.version,
@@ -146,6 +153,8 @@ class Agent:
 
     def deactivate(self):
         """에이전트를 비활성화 상태로 전환합니다. (Azure 리소스 삭제 진행 중)"""
+        if self.is_deactivating() or self.is_deleted():
+            raise ConflictException(f"Agent is already {self.status.value} or deleted.")
         self.status = AgentStatus.DEACTIVATING
 
     def is_deleted(self) -> bool:
@@ -157,8 +166,19 @@ class Agent:
         if self.status == AgentStatus.INITIALIZING:
             self.status = AgentStatus.ACTIVE
 
+    def is_active(self) -> bool:
+        return self.status == AgentStatus.ACTIVE
+
     def confirm_deletion(self):
         """Azure 리소스 삭제가 확인된 후 최종 삭제 상태로 전환합니다."""
+        if self.status == AgentStatus.DELETED:
+            return  # 이미 삭제된 경우 (멱등성 보장)
+
+        if self.status != AgentStatus.DEACTIVATING:
+            raise ConflictException(
+                f"Agent is not in {AgentStatus.DEACTIVATING.value} status. Current status: {self.status.value}"
+            )
+
         self.status = AgentStatus.DELETED
         self.deleted_at = datetime.now(UTC).isoformat()
 
@@ -170,3 +190,35 @@ class Agent:
     def mark_deactivate_failed(self):
         """Azure 리소스 삭제가 실패하여 비활성화에 실패했음을 표시합니다."""
         self.status = AgentStatus.DEACTIVATE_FAILED
+
+    def is_deactivating(self) -> bool:
+        """에이전트가 비활성화 중인지 확인합니다."""
+        return self.status == AgentStatus.DEACTIVATING
+
+    def can_start_analysis(self) -> bool:
+        """분석 시작 가능 상태인지 확인합니다."""
+        return self.is_active()
+
+    def get_storage_account_name(self) -> str | None:
+        """에이전트의 스토리지 계정명을 반환합니다. (신규 필드 우선, 폴백으로 런타임 환경 정보 확인)"""
+        # 1. 최상위 필드 확인 (신규 핸드셰이크 방식)
+        if self.storage_account_name:
+            return self.storage_account_name
+
+        # 2. 런타임 환경 정보에서 명시적 추출 (하위 호환성)
+        if not self.runtime_env:
+            return None
+
+        # 1. 명시적인 STORAGE_ACCOUNT_NAME 확인
+        if name := self.runtime_env.get("STORAGE_ACCOUNT_NAME"):
+            return name
+
+        # 2. AzureWebJobsStorage 연결 문자열에서 추출 시도
+        if conn_str := self.runtime_env.get("AzureWebJobsStorage"):
+            # 예: DefaultEndpointsProtocol=https;AccountName=logdrstorage;...
+            parts = conn_str.split(";")
+            for part in parts:
+                if part.startswith("AccountName="):
+                    return part.split("=")[1]
+
+        return None

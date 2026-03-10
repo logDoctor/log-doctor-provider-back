@@ -15,7 +15,9 @@ class AgentRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_active_agent_by_client_id(self, tenant_id: str, agent_id: str) -> Agent | None:
+    async def get_active_agent_by_client_id(
+        self, tenant_id: str, agent_id: str
+    ) -> Agent | None:
         """가장 최근 활성화된(또는 삭제 중인) 에이전트 우선으로 클라이언트 ID(agent_id) 기반 정보를 조회합니다."""
         pass
 
@@ -31,7 +33,11 @@ class AgentRepository(ABC):
 
     @abstractmethod
     async def list_agents(
-        self, tenant_id: str | None, skip: int = 0, limit: int = 10
+        self,
+        tenant_id: str | None,
+        subscription_ids: list[str] | None = None,
+        skip: int = 0,
+        limit: int = 10,
     ) -> tuple[list[Agent], int]:
         """에이전트 목록과 전체 개수를 조회합니다."""
         pass
@@ -46,29 +52,28 @@ class AzureAgentRepository(AgentRepository):
     async def get_agent(self, tenant_id: str, id: str) -> Agent | None:
         return await self.container.read_item(item=id, partition_key=tenant_id)
 
-    async def get_active_agent_by_client_id(self, tenant_id: str, agent_id: str) -> Agent | None:
+    async def get_active_agent_by_client_id(
+        self, tenant_id: str, agent_id: str
+    ) -> Agent | None:
         # CosmosDB Query로 활성/가장 최근 갱신된 에이전트 1건을 가져옵니다.
         # 동일한 agent_id 중 최신 레코드(삭제되지 않은 것 우선) 1건
         query = (
-            "SELECT * FROM c "
-            "WHERE c.tenant_id = @tenant_id AND c.agent_id = @agent_id"
+            "SELECT * FROM c WHERE c.tenant_id = @tenant_id AND c.agent_id = @agent_id"
         )
         parameters = [
             {"name": "@tenant_id", "value": tenant_id},
             {"name": "@agent_id", "value": agent_id},
         ]
-        
+
         items = self.container.query_items(
-            query=query,
-            parameters=parameters,
-            partition_key=tenant_id
+            query=query, parameters=parameters, partition_key=tenant_id
         )
-        
+
         results = [item async for item in items]
         if not results:
             return None
 
-        # Priority-based sorting: 
+        # Priority-based sorting:
         # 1. ACTIVE, INITIALIZING, DEACTIVATING, DEACTIVATE_FAILED (Alive states)
         # 2. DELETED (Dead state)
         # Within the same category, newer _ts first.
@@ -78,23 +83,25 @@ class AzureAgentRepository(AgentRepository):
             priority = 1 if status == AgentStatus.DELETED.value else 0
             # Tie-break with status priority if needed, then timestamp
             status_map = {
-                AgentStatus.ACTIVE.value: 0, 
-                AgentStatus.INITIALIZING.value: 1, 
-                AgentStatus.DEACTIVATING.value: 2, 
-                AgentStatus.DEACTIVATE_FAILED.value: 3
+                AgentStatus.ACTIVE.value: 0,
+                AgentStatus.INITIALIZING.value: 1,
+                AgentStatus.DEACTIVATING.value: 2,
+                AgentStatus.DEACTIVATE_FAILED.value: 3,
             }
             sub_priority = status_map.get(status, 9)
             return (priority, sub_priority, -x.get("_ts", 0))
 
         results.sort(key=sort_key)
-        
-        return results[0] # Decorator will handle mapping to Agent
+
+        return results[0]  # Decorator will handle mapping to Agent
 
     async def upsert_agent(self, item: dict) -> Agent:
         return await self.container.upsert_item(item)
 
     async def get_all_by_tenant_id(self, tenant_id: str) -> list[Agent]:
-        query = "SELECT * FROM c WHERE c.tenant_id = @tenant_id AND c.status != @deleted"
+        query = (
+            "SELECT * FROM c WHERE c.tenant_id = @tenant_id AND c.status != @deleted"
+        )
         parameters = [
             {"name": "@tenant_id", "value": tenant_id},
             {"name": "@deleted", "value": AgentStatus.DELETED.value},
@@ -105,7 +112,11 @@ class AzureAgentRepository(AgentRepository):
         return [Agent.from_dict(item) async for item in items]
 
     async def list_agents(
-        self, tenant_id: str | None, skip: int = 0, limit: int = 10
+        self,
+        tenant_id: str | None,
+        subscription_ids: list[str] | None = None,
+        skip: int = 0,
+        limit: int = 10,
     ) -> tuple[list[Agent], int]:
         # 1. 기본 쿼리 및 파라미터 설정
         where_clauses = [f"c.status != '{AgentStatus.DELETED.value}'"]
@@ -114,6 +125,17 @@ class AzureAgentRepository(AgentRepository):
         if tenant_id:
             where_clauses.append("c.tenant_id = @tenant_id")
             parameters.append({"name": "@tenant_id", "value": tenant_id})
+
+        if subscription_ids:
+            # IN (@sub1, @sub2, ...) 형태의 쿼리 생성
+            sub_params = []
+            for i, sub_id in enumerate(subscription_ids):
+                param_name = f"@sub_id_{i}"
+                sub_params.append(param_name)
+                parameters.append({"name": param_name, "value": sub_id})
+
+            if sub_params:
+                where_clauses.append(f"c.subscription_id IN ({', '.join(sub_params)})")
 
         where_clause = "WHERE " + " AND ".join(where_clauses)
 
@@ -130,9 +152,7 @@ class AzureAgentRepository(AgentRepository):
             break
 
         # 3. 데이터 조회 (Pagination)
-        data_query = (
-            f"SELECT * FROM c {where_clause} ORDER BY c._ts DESC OFFSET {skip} LIMIT {limit}"
-        )
+        data_query = f"SELECT * FROM c {where_clause} ORDER BY c._ts DESC OFFSET {skip} LIMIT {limit}"
         items = self.container.query_items(
             query=data_query,
             parameters=parameters,

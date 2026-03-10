@@ -1,225 +1,180 @@
 from fastapi import Depends, Request
-from fastapi.responses import JSONResponse
 from fastapi_restful.cbv import cbv
 
-from app.core.auth.guards import check_admin, check_tenant, get_current_identity
+from app.core.auth.guards import admin_verify_guard, get_current_identity
 from app.core.auth.models import Identity
+from app.core.exceptions import BadRequestException
 from app.core.routing import APIRouter
+from app.domains.agent.models import AgentStatus
 
 from .dependencies import (
-    get_check_azure_status_use_case,
+    get_check_azure_resource_group_status_use_case,
     get_confirm_agent_deletion_use_case,
     get_deactivate_agent_use_case,
     get_handshake_agent_use_case,
-    get_list_agents_use_case,
+    get_platform_admin_list_agents_use_case,
     get_request_agent_update_use_case,
-    get_should_agent_run_use_case,
-    get_trigger_agent_analysis_use_case,
-    get_update_agent_use_case,
+    get_tenant_user_list_agents_use_case,
 )
 from .schemas import (
-    AgentDeactivateResponse,
-    AgentHandshakeRequest,
-    AgentHandshakeResponse,
-    AgentPollingResponse,
-    AgentResponse,
-    AgentTriggerRequest,
-    AgentTriggerResponse,
-    AgentUpdateDeployRequest,
-    AgentUpdateDeployResponse,
     AgentUpdateRequest,
-    AgentUpdateResponse,
-    AzureStatusResponse,
-    ConfirmDeletionResponse,
-    PaginatedAgentResponse,
+    CheckAzureResourceGroupStatusResponse,
+    ConfirmAgentDeletionResponse,
+    DeactivateAgentResponse,
+    HandshakeAgentRequest,
+    HandshakeAgentResponse,
+    PlatformAdminListAgentsResponse,
+    RequestAgentUpdateRequest,
+    RequestAgentUpdateResponse,
+    TenantUserListAgentsResponse,
 )
 from .usecases import (
-    CheckAzureStatusUseCase,
+    CheckAzureResourceGroupStatusUseCase,
     ConfirmAgentDeletionUseCase,
     DeactivateAgentUseCase,
     HandshakeAgentUseCase,
-    ListAgentsUseCase,
+    PlatformAdminListAgentsUseCase,
     RequestAgentUpdateUseCase,
-    ShouldAgentRunUseCase,
-    TriggerAgentAnalysisUseCase,
-    UpdateAgentUseCase,
+    TenantUserListAgentsUseCase,
 )
 
-router = APIRouter(prefix="/agents", tags=["Agent"])
+router = APIRouter(prefix="/agents", tags=["Agents"])
 
 
 @cbv(router)
 class AgentRouter:
-    def __init__(
-        self,
-        handshake_use_case: HandshakeAgentUseCase = Depends(get_handshake_agent_use_case),
-        list_use_case: ListAgentsUseCase = Depends(get_list_agents_use_case),
-        should_run_use_case: ShouldAgentRunUseCase = Depends(get_should_agent_run_use_case),
-        trigger_use_case: TriggerAgentAnalysisUseCase = Depends(get_trigger_agent_analysis_use_case),
-        update_use_case: UpdateAgentUseCase = Depends(get_update_agent_use_case),
-        deactivate_use_case: DeactivateAgentUseCase = Depends(get_deactivate_agent_use_case),
-        check_azure_status_use_case: CheckAzureStatusUseCase = Depends(get_check_azure_status_use_case),
-        confirm_deletion_use_case: ConfirmAgentDeletionUseCase = Depends(get_confirm_agent_deletion_use_case),
-        request_update_use_case: RequestAgentUpdateUseCase = Depends(get_request_agent_update_use_case),
-    ):
-        self.handshake_use_case = handshake_use_case
-        self.list_use_case = list_use_case
-        self.should_run_use_case = should_run_use_case
-        self.trigger_use_case = trigger_use_case
-        self.update_use_case = update_use_case
-        self.deactivate_use_case = deactivate_use_case
-        self.check_azure_status_use_case = check_azure_status_use_case
-        self.confirm_deletion_use_case = confirm_deletion_use_case
-        self.request_update_use_case = request_update_use_case
-
-    @router.get("/", response_model=PaginatedAgentResponse)
+    @router.get(
+        "/",
+        response_model=PlatformAdminListAgentsResponse | TenantUserListAgentsResponse,
+    )
     async def list_agents(
         self,
         identity: Identity = Depends(get_current_identity),
         tenant_id: str | None = None,
         skip: int = 0,
-        limit: int = 10,
+        limit: int = 20,
+        tenant_user_list_agents_use_case: TenantUserListAgentsUseCase = Depends(
+            get_tenant_user_list_agents_use_case
+        ),
+        platform_admin_list_agents_use_case: PlatformAdminListAgentsUseCase = Depends(
+            get_platform_admin_list_agents_use_case
+        ),
     ):
-        """
-        에이전트 목록을 조회합니다.
-        (운영자는 전체 또는 특정 테넌트, 일반 사용자는 자신의 테넌트 정보만 접근 가능)
-        """
-        items, total_count = await self.list_use_case.execute(
-            identity, tenant_id=tenant_id, skip=skip, limit=limit
+        """에이전트 목록을 조회합니다. (역할 기반: 어드민은 전체/필터링, 사용자는 본인 테넌트)"""
+        if identity.is_platform_admin():
+            return await platform_admin_list_agents_use_case.execute(
+                identity=identity, tenant_id=tenant_id, skip=skip, limit=limit
+            )
+
+        return await tenant_user_list_agents_use_case.execute(
+            identity=identity, tenant_id=tenant_id, skip=skip, limit=limit
         )
-        return PaginatedAgentResponse(
-            items=[AgentResponse.model_validate(item) for item in items],
-            total_count=total_count,
-            skip=skip,
-            limit=limit
-        )
 
-    @router.post("/handshake", response_model=AgentHandshakeResponse)
-    async def request_handshake(
-        self,
-        fastapi_req: Request,
-        request: AgentHandshakeRequest,
-        identity: Identity = Depends(get_current_identity),
-        tenant_id: str = Depends(check_tenant),
-    ):
-        """
-        에이전트로부터의 최초 핸드쉐이크 요청을 처리하고 정보를 등록합니다.
-        (Decorator-based Tenant Validation 적용)
-        """
-        client_ip = fastapi_req.client.host if fastapi_req.client else ""
-        return await self.handshake_use_case.execute(request, client_ip=client_ip)
-
-    @router.get("/{client_agent_id}/polling", response_model=AgentPollingResponse)
-    async def polling_status(
-        self,
-        client_agent_id: str,
-        identity: Identity = Depends(get_current_identity),
-        tenant_id: str = Depends(check_tenant),
-    ):
-        """
-        에이전트가 주기적으로 호출하여 분석을 수행해야 하는지 확인합니다. (Polling)
-        """
-        return await self.should_run_use_case.execute(tenant_id, client_agent_id)
-
-    @router.post("/trigger", response_model=AgentTriggerResponse)
-    async def trigger(
-        self,
-        request: AgentTriggerRequest = None,
-        identity: Identity = Depends(get_current_identity),
-        is_admin: bool = Depends(check_admin),
-    ):
-        """
-        사용자의 요청에 의해 특정 에이전트의 분석을 즉시 트리거합니다. (운영자 전용)
-        """
-        return await self.trigger_use_case.execute(request)
-
-    @router.put("/{client_agent_id}", response_model=AgentUpdateResponse)
-    async def update_agent(
+    @router.patch(
+        "/{client_agent_id}",
+        response_model=DeactivateAgentResponse | ConfirmAgentDeletionResponse,
+    )
+    async def update_agent_status(
         self,
         client_agent_id: str,
         request: AgentUpdateRequest,
-        identity: Identity = Depends(get_current_identity),
-        is_admin: bool = Depends(check_admin),
+        admin_identity: Identity = Depends(admin_verify_guard),
+        deactivate_use_case: DeactivateAgentUseCase = Depends(
+            get_deactivate_agent_use_case
+        ),
+        confirm_deletion_use_case: ConfirmAgentDeletionUseCase = Depends(
+            get_confirm_agent_deletion_use_case
+        ),
     ):
         """
-        특정 에이전트의 정보(스케줄, 상태 등)를 변경합니다. (운영자 전용)
+        에이전트 상태를 변경합니다. (운영자 전용)
+        - DEACTIVATING: Azure 리소스 삭제 요청 및 비활성화 프로세스 시작
+        - DELETED: 리소스 삭제 확인 후 최종 삭제 확정
         """
-        # 경로의 agent_id를 요청 데이터에 맞춤
-        return await self.update_use_case.execute(request)
+        if request.status == AgentStatus.DEACTIVATING:
+            return await deactivate_use_case.execute(
+                identity=admin_identity,
+                tenant_id=request.tenant_id,
+                agent_id=client_agent_id,
+            )
+        elif request.status == AgentStatus.DELETED:
+            return await confirm_deletion_use_case.execute(
+                tenant_id=request.tenant_id,
+                agent_id=client_agent_id,
+            )
 
-    @router.delete("/{client_agent_id}", response_model=AgentDeactivateResponse)
-    async def deactivate_agent(
+        raise BadRequestException(f"Unsupported status change: {request.status}")
+
+    @router.delete("/{client_agent_id}", response_model=DeactivateAgentResponse)
+    async def delete_agent(
         self,
         client_agent_id: str,
         tenant_id: str,
-        delete_azure_resources: bool = True,
-        identity: Identity = Depends(get_current_identity),
-        is_admin: bool = Depends(check_admin),
+        admin_identity: Identity = Depends(admin_verify_guard),
+        deactivate_use_case: DeactivateAgentUseCase = Depends(
+            get_deactivate_agent_use_case
+        ),
     ):
         """
-        에이전트를 비활성화합니다. (운영자 전용)
-        Azure 리소스 그룹 삭제 요청을 보내고 DEACTIVATING 상태로 전환합니다.
+        에이전트 비활성화를 요청합니다. (운영자 전용)
+        프론트엔드 호환성을 위해 DELETE 메서드를 지원합니다.
         """
-        result = await self.deactivate_use_case.execute(
-            identity=identity,
-            tenant_id=tenant_id,
-            agent_id=client_agent_id,
-            delete_azure_resources=delete_azure_resources,
-        )
-        status_code = 202 if result["success"] else 500
-        return JSONResponse(content=result, status_code=status_code)
-
-    @router.get("/{client_agent_id}/azure-status", response_model=AzureStatusResponse)
-    async def check_azure_status(
-        self,
-        client_agent_id: str,
-        tenant_id: str,
-        identity: Identity = Depends(get_current_identity),
-        is_admin: bool = Depends(check_admin),
-    ):
-        """
-        에이전트의 Azure 리소스 그룹 존재 여부를 확인합니다. (순수 읽기, 운영자 전용)
-        Managed Identity를 사용합니다.
-        """
-        return await self.check_azure_status_use_case.execute(
-            identity=identity,
-            tenant_id=tenant_id,
-            agent_id=client_agent_id,
-        )
-
-    @router.post("/{client_agent_id}/confirm-deletion", response_model=ConfirmDeletionResponse)
-    async def confirm_deletion(
-        self,
-        client_agent_id: str,
-        tenant_id: str,
-        identity: Identity = Depends(get_current_identity),
-        is_admin: bool = Depends(check_admin),
-    ):
-        """
-        Azure 리소스 삭제 확인 후 에이전트를 최종 DELETED 상태로 전환합니다. (운영자 전용)
-        """
-        return await self.confirm_deletion_use_case.execute(
+        return await deactivate_use_case.execute(
+            identity=admin_identity,
             tenant_id=tenant_id,
             agent_id=client_agent_id,
         )
 
-    @router.post("/{client_agent_id}/request-update", response_model=AgentUpdateDeployResponse)
+    @router.get(
+        "/{client_agent_id}/resource-group",
+        response_model=CheckAzureResourceGroupStatusResponse,
+    )
+    async def check_azure_resource_group_status(
+        self,
+        client_agent_id: str,
+        tenant_id: str,
+        admin_identity: Identity = Depends(admin_verify_guard),
+        use_case: CheckAzureResourceGroupStatusUseCase = Depends(
+            get_check_azure_resource_group_status_use_case
+        ),
+    ):
+        """에이전트의 실제 Azure 리소스 존재 여부를 확인합니다. (운영자 전용)"""
+        return await use_case.execute(
+            identity=admin_identity,
+            tenant_id=tenant_id,
+            agent_id=client_agent_id,
+        )
+
+    @router.post(
+        "/{client_agent_id}/request-update", response_model=RequestAgentUpdateResponse
+    )
     async def request_update(
         self,
         client_agent_id: str,
-        request: AgentUpdateDeployRequest,
-        identity: Identity = Depends(get_current_identity),
-        is_admin: bool = Depends(check_admin),
+        tenant_id: str,
+        request: RequestAgentUpdateRequest,
+        admin_identity: Identity = Depends(admin_verify_guard),
+        use_case: RequestAgentUpdateUseCase = Depends(
+            get_request_agent_update_use_case
+        ),
     ):
-        """
-        배포된 에이전트의 OTA 업데이트를 요청합니다. (운영자 전용)
-        Azure ARM API로 Function App의 WEBSITE_RUN_FROM_PACKAGE 설정을 변경하여
-        에이전트가 새 패키지로 자동 재시작되도록 합니다.
-        """
-        return await self.request_update_use_case.execute(
-            identity=identity,
-            tenant_id=request.tenant_id,
+        """에이전트 패키지 업데이트를 요청합니다. (운영자 전용)"""
+        return await use_case.execute(
+            identity=admin_identity,
+            tenant_id=tenant_id,
             agent_id=client_agent_id,
             target_version=request.target_version,
         )
 
+    @router.post("/handshake", response_model=HandshakeAgentResponse)
+    async def handshake(
+        self,
+        request: HandshakeAgentRequest,
+        req: Request,
+        use_case: HandshakeAgentUseCase = Depends(get_handshake_agent_use_case),
+    ):
+        """
+        에이전트가 최초 실행되거나 재시작될 때 호출하여 자신의 정보를 등록/갱신합니다.
+        """
+        client_ip = req.client_metadata.get("ip", "unknown")
+        return await use_case.execute(request, client_ip)
