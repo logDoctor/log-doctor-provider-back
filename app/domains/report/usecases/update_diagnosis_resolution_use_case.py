@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+
 from app.core.exceptions import NotFoundException
 from app.domains.report.repository import DiagnosisRepository
 

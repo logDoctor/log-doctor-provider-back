@@ -10,8 +10,8 @@ from .dependencies import (
     get_get_report_use_case,
     get_list_reports_use_case,
     get_receive_diagnoses_use_case,
-    get_update_report_status_use_case,
     get_update_diagnosis_resolution_use_case,
+    get_update_report_status_use_case,
 )
 from .schemas import (
     AddDiagnosesRequest,
