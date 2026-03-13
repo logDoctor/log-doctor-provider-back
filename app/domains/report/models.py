@@ -25,11 +25,17 @@ class Report:
     status: ReportStatus
     triggered_by: str
     level: AnalysisLevel
+    is_initial: bool = False
     request_params: dict | None = None  # 분석 요청 시 입력된 파라미터 컨텍스트
     result: dict | None = None  # 분석 완료 후 생성된 결과 데이터
     error: str | None = None
     created_at: str = ""
     updated_at: str = ""
+
+    @property
+    def is_analyzing(self) -> bool:
+        """리포트가 현재 분석 중(진행 중)인지 확인합니다."""
+        return self.status == ReportStatus.ANALYZING
 
     @staticmethod
     def create(
@@ -38,6 +44,7 @@ class Report:
         trace_id: str,
         triggered_by: str,
         level: AnalysisLevel,
+        is_initial: bool = False,
         request_params: dict | None = None,
     ) -> "Report":
         now = datetime.now(UTC).isoformat()
@@ -49,6 +56,7 @@ class Report:
             status=ReportStatus.ANALYZING,
             triggered_by=triggered_by,
             level=level,
+            is_initial=is_initial,
             request_params=request_params,
             created_at=now,
             updated_at=now,
@@ -60,6 +68,36 @@ class Report:
         self.error = error_message
         self.updated_at = datetime.now(UTC).isoformat()
 
+    def complete_analysis(self, result: dict, error: str | None = None):
+        """분석 완료 결과를 리포트에 반영합니다."""
+        if error:
+            self.status = ReportStatus.FAILED
+            self.error = error
+        else:
+            self.status = ReportStatus.COMPLETED
+            self.result = result
+
+        self.updated_at = datetime.now(UTC).isoformat()
+
+    def update(
+        self,
+        status: ReportStatus | None = None,
+        error: str | None = None,
+    ) -> list[str]:
+        """리포트 정보를 부분 업데이트하고 변경된 필드 목록을 반환합니다."""
+        updated_fields = []
+        if status and self.status != status:
+            self.status = status
+            updated_fields.append("status")
+        if error is not None and self.error != error:
+            self.error = error
+            updated_fields.append("error")
+
+        if updated_fields:
+            self.updated_at = datetime.now(UTC).isoformat()
+
+        return updated_fields
+
     @staticmethod
     def from_dict(data: dict) -> "Report":
         return Report(
@@ -70,6 +108,7 @@ class Report:
             status=ReportStatus(data["status"]),
             triggered_by=data.get("triggered_by", "system"),
             level=AnalysisLevel(data.get("level", AnalysisLevel.L1)),
+            is_initial=data.get("is_initial", False),
             request_params=data.get("request_params"),
             result=data.get("result"),
             error=data.get("error"),
@@ -86,9 +125,84 @@ class Report:
             "status": self.status.value,
             "triggered_by": self.triggered_by,
             "level": self.level.value if hasattr(self.level, "value") else self.level,
+            "is_initial": self.is_initial,
             "request_params": self.request_params,
             "result": self.result,
             "error": self.error,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+
+@dataclass
+class Diagnosis:
+    """개별 진단 항목 엔티티 (Atomic Finding)"""
+
+    id: str
+    report_id: str
+    tenant_id: str
+    rule_id: str
+    status: str  # DETECTED | HEALTHY
+    description: str
+    resource_id: str
+    remediation: str
+    is_resolved: bool = False
+    created_at: str = ""
+    updated_at: str = ""
+
+    @staticmethod
+    def create(
+        report_id: str,
+        tenant_id: str,
+        rule_id: str,
+        status: str,
+        description: str,
+        resource_id: str,
+        remediation: str,
+        is_resolved: bool = False,
+    ) -> "Diagnosis":
+        now = datetime.now(UTC).isoformat()
+        return Diagnosis(
+            id=str(uuid.uuid4()),
+            report_id=report_id,
+            tenant_id=tenant_id,
+            rule_id=rule_id,
+            status=status,
+            description=description,
+            resource_id=resource_id,
+            remediation=remediation,
+            is_resolved=is_resolved,
+            created_at=now,
+            updated_at=now,
+        )
+
+    @staticmethod
+    def from_dict(data: dict) -> "Diagnosis":
+        return Diagnosis(
+            id=data["id"],
+            report_id=data["report_id"],
+            tenant_id=data["tenant_id"],
+            rule_id=data["rule_id"],
+            status=data["status"],
+            description=data["description"],
+            resource_id=data["resource_id"],
+            remediation=data["remediation"],
+            is_resolved=data.get("is_resolved", False),
+            created_at=data["created_at"],
+            updated_at=data.get("updated_at", data["created_at"]),
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "report_id": self.report_id,
+            "tenant_id": self.tenant_id,
+            "rule_id": self.rule_id,
+            "status": self.status,
+            "description": self.description,
+            "resource_id": self.resource_id,
+            "remediation": self.remediation,
+            "is_resolved": self.is_resolved,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }

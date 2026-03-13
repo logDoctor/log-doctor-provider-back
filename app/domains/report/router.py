@@ -8,21 +8,27 @@ from app.core.routing import APIRouter
 from .dependencies import (
     get_create_report_use_case,
     get_get_report_use_case,
+    get_list_reports_use_case,
     get_receive_diagnoses_use_case,
     get_update_report_status_use_case,
+    get_update_diagnosis_resolution_use_case,
 )
 from .schemas import (
     AddDiagnosesRequest,
     CreateReportRequest,
     CreateReportResponse,
+    ReportListResponse,
     ReportSchema,
     ReportUpdateSchema,
+    UpdateDiagnosisResolutionRequest,
 )
 from .usecases import (
     CreateReportUseCase,
     GetReportUseCase,
+    ListReportsUseCase,
     ReceiveDiagnosesUseCase,
     UpdateReportStatusUseCase,
+    UpdateDiagnosisResolutionUseCase,
 )
 
 router = APIRouter(tags=["Report"])
@@ -41,6 +47,40 @@ class ReportRouter:
         return await use_case.execute(
             identity=identity,
             request=request,
+        )
+
+    @router.get("/", response_model=ReportListResponse)
+    async def list_reports(
+        self,
+        agent_id: str,
+        is_initial: bool | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+        identity: Identity = Depends(get_current_identity),
+        use_case: ListReportsUseCase = Depends(get_list_reports_use_case),
+    ):
+        """조건에 맞는 리포트 목록을 조회합니다. (페이지네이션 지원)"""
+        return await use_case.execute(
+            identity=identity,
+            agent_id=agent_id,
+            is_initial=is_initial,
+            cursor=cursor,
+            limit=limit,
+        )
+
+    @router.get("/{report_id}", response_model=ReportSchema)
+    async def get_report(
+        self,
+        report_id: str,
+        wait: bool = False,
+        identity: Identity = Depends(get_current_identity),
+        use_case: GetReportUseCase = Depends(get_get_report_use_case),
+    ):
+        """리포트의 현재 상태를 조회합니다. wait=true 이면 완료될 때까지 대기(Long-polling)합니다."""
+        return await use_case.execute(
+            identity=identity,
+            report_id=report_id,
+            wait_for_completion=wait,
         )
 
     @router.post("/{report_id}/diagnoses")
@@ -80,17 +120,22 @@ class ReportRouter:
 
         return {"status": "success"}
 
-    @router.get("/{report_id}", response_model=ReportSchema)
-    async def get_report(
+    @router.patch("/{report_id}/diagnoses/{diagnosis_id}")
+    async def update_diagnosis_resolution(
         self,
         report_id: str,
-        wait: bool = False,
+        diagnosis_id: str,
+        request: UpdateDiagnosisResolutionRequest,
         identity: Identity = Depends(get_current_identity),
-        use_case: GetReportUseCase = Depends(get_get_report_use_case),
+        use_case: UpdateDiagnosisResolutionUseCase = Depends(
+            get_update_diagnosis_resolution_use_case
+        ),
     ):
-        """리포트의 현재 상태를 조회합니다. wait=true 이면 완료될 때까지 대기(Long-polling)합니다."""
-        return await use_case.execute(
-            identity=identity,
-            report_id=report_id,
-            wait_for_completion=wait,
+        """특정 진단 항목의 해결 상태(is_resolved)를 업데이트합니다."""
+        await use_case.execute(
+            tenant_id=identity.tenant_id,
+            diagnosis_id=diagnosis_id,
+            is_resolved=request.is_resolved,
         )
+
+        return {"status": "success"}

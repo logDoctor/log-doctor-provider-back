@@ -5,6 +5,24 @@ from app.domains.agent.models import AnalysisLevel
 from .models import ReportStatus
 
 
+class DiagnosisSchema(BaseModel):
+    """개별 진단 항목 스키마"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str | None = None
+    report_id: str
+    tenant_id: str
+    rule_id: str
+    status: str  # DETECTED | HEALTHY
+    description: str
+    resource_id: str
+    remediation: str
+    is_resolved: bool = False
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
 class ReportSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -15,8 +33,10 @@ class ReportSchema(BaseModel):
     status: ReportStatus
     triggered_by: str
     level: AnalysisLevel
+    is_initial: bool
     request_params: dict | None = None
     result: dict | None = None
+    diagnoses: list[DiagnosisSchema] | None = None
     error: str | None = None
     created_at: str
     updated_at: str
@@ -34,22 +54,6 @@ class CreateReportResponse(BaseModel):
     report: ReportSchema
 
 
-class DiagnosisSchema(BaseModel):
-    """개별 진단 항목 스키마"""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str | None = None
-    report_id: str
-    tenant_id: str
-    rule_id: str
-    status: str  # DETECTED | HEALTHY
-    description: str
-    resource_id: str
-    remediation: str
-    created_at: str | None = None
-
-
 class AddDiagnosesRequest(BaseModel):
     """진단 항목 일괄 추가 요청"""
 
@@ -61,3 +65,16 @@ class ReportUpdateSchema(BaseModel):
 
     status: ReportStatus | None = None
     error: str | None = None
+
+
+class UpdateDiagnosisResolutionRequest(BaseModel):
+    """진단 항목 해결 상태 업데이트 요청"""
+
+    is_resolved: bool
+
+
+class ReportListResponse(BaseModel):
+    """리포트 목록 응답 스키마 (페이지네이션 지원)"""
+
+    items: list[ReportSchema]
+    next_cursor: str | None = None
