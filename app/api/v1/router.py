@@ -10,10 +10,10 @@ from app.domains.tenant.router import router as tenant_router
 
 v1_router = APIRouter()
 
-v1_router.include_router(template_router)
-v1_router.include_router(teams_webhook_router)
-v1_router.include_router(package_router)
-v1_router.include_router(tenant_router)
-v1_router.include_router(agent_router)
-v1_router.include_router(report_router)
-v1_router.include_router(license_router)
+v1_router.include_router(template_router, prefix="/templates")
+v1_router.include_router(teams_webhook_router, prefix="/teams/webhook")
+v1_router.include_router(tenant_router, prefix="/tenants")
+v1_router.include_router(agent_router, prefix="/agents")
+v1_router.include_router(report_router, prefix="/reports")
+v1_router.include_router(license_router, prefix="/licenses")
+v1_router.include_router(package_router, prefix="/packages")

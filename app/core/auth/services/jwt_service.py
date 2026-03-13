@@ -59,19 +59,32 @@ class JwtService:
         try:
             signing_key = self.jwk_client.get_signing_key_from_jwt(token)
 
-            # Teams SSO 토큰의 Audience는 보통 api://<client_id> 형태입니다.
+            # Teams SSO 토큰(`api://`) 또는 Azure Management 토큰(`https://management.azure.com`) 모두 허용
             audience = f"api://{settings.CLIENT_ID}"
+            allowed_audiences = [audience, settings.CLIENT_ID, "https://management.azure.com/", "https://management.azure.com"]
 
             payload = jwt.decode(
                 token,
                 signing_key.key,
                 algorithms=["RS256"],
-                audience=[audience, settings.CLIENT_ID],
+                audience=allowed_audiences,
                 options={"verify_exp": True, "verify_aud": True},
             )
             return payload
         except Exception as e:
             from structlog import get_logger
+            logger = get_logger()
 
-            get_logger().warning("JWT verification failed", error=str(e))
+            # 실패 원인 분석을 위해 토큰 내 aud 클레임을 수동으로 확인
+            raw_payload = self.extract_payload(token)
+            actual_aud = raw_payload.get("aud")
+            expected_auds = [f"api://{settings.CLIENT_ID}", settings.CLIENT_ID, "https://management.azure.com/"]
+
+            logger.warning(
+                "JWT verification failed",
+                error=str(e),
+                actual_aud=actual_aud,
+                expected_auds=expected_auds,
+                client_id_from_env=settings.CLIENT_ID
+            )
             return None

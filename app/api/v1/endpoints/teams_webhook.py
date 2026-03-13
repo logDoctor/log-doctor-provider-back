@@ -7,7 +7,7 @@ from app.domains.agent.usecases import TenantAdminUninstallUseCase
 
 logger = structlog.get_logger()
 
-router = APIRouter(prefix="/teams/webhook", tags=["Teams Webhook"])
+router = APIRouter(tags=["Teams Webhook"])
 
 
 @router.post("")

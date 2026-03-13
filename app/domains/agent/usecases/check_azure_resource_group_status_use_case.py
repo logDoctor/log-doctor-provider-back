@@ -27,8 +27,8 @@ class CheckAzureResourceGroupStatusUseCase:
         OBO 토큰을 사용하여 사용자의 권한으로 리소스 그룹 존재 여부를 확인합니다.
         DB 상태를 변경하지 않습니다.
         """
-        agent = await self.repository.get_active_agent_by_client_id(
-            tenant_id=tenant_id, agent_id=agent_id
+        agent = await self.repository.get_by_id(
+            tenant_id=tenant_id, id=agent_id
         )
         if not agent:
             raise NotFoundException(f"Agent {agent_id} not found.")

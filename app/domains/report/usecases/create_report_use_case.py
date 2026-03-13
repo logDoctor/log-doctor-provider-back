@@ -9,10 +9,11 @@ from app.core.exceptions import (
 from app.core.interfaces.azure_queue import AzureQueueService
 from app.core.logging import get_logger
 from app.domains.agent.constants import AGENT_COMMAND_QUEUE_NAME, COMMAND_RUN_ANALYSIS
+from app.domains.agent.models import AnalysisLevel
 from app.domains.agent.repository import AgentRepository
 from app.domains.agent.schemas import AgentCommandMessage
 
-from ..models import Report
+from ..models import Report, ReportStatus
 from ..repository import ReportRepository
 from ..schemas import CreateReportRequest, CreateReportResponse, ReportSchema
 
@@ -29,6 +30,7 @@ class CreateReportUseCase:
         self.report_repository = report_repository
         self.agent_repository = agent_repository
         self.azure_queue_service = azure_queue_service
+        # self.report_domain_service는 제거됨
 
     async def execute(
         self,
@@ -54,20 +56,32 @@ class CreateReportUseCase:
         trace_id = str(uuid.uuid4())
         params = self._generate_request_params(request)
 
+        # 초진 여부 자동 판별 (Repository.get_initial 활용)
+        existing_initial = await self.report_repository.get_initial(
+            tenant_id=identity.tenant_id,
+            agent_id=request.agent_id,
+        )
+        is_initial = self._should_be_initial(existing_initial)
+        
+        # 초진(Initial)은 항상 L3 레벨로 고정
+        level = AnalysisLevel.L3 if is_initial else request.level
+
         report = Report.create(
             tenant_id=identity.tenant_id,
             agent_id=request.agent_id,
             trace_id=trace_id,
             triggered_by=identity.email or identity.id or "unknown",
-            level=request.level,
+            level=level,
+            is_initial=is_initial,
             request_params=params,
         )
 
         queue_message = AgentCommandMessage(
             agent_id=request.agent_id,
             command=COMMAND_RUN_ANALYSIS,
-            params={**params, "level": request.level},
+            params={**params, "level": level},
             trace_id=trace_id,
+            report_id=report.id,
         )
 
         try:
@@ -75,6 +89,7 @@ class CreateReportUseCase:
                 account_name=storage_account_name,
                 queue_name=AGENT_COMMAND_QUEUE_NAME,
                 message=queue_message.model_dump(),
+                tenant_id=identity.tenant_id,
             )
         except Exception as e:
             report.mark_as_failed(f"Queue delivery failed: {str(e)}")
@@ -109,3 +124,11 @@ class CreateReportUseCase:
             request_params["end_time"] = request.end_time
 
         return request_params
+
+    def _should_be_initial(self, existing_initial: Report | None) -> bool:
+        """기존 초진 리포트 유무 및 상태를 기반으로 새 리포트의 초진 여부를 결정합니다."""
+        if not existing_initial:
+            return True
+        
+        # 이미 존재하지만 FAILED인 경우에만 다시 초진 가능
+        return existing_initial.status == ReportStatus.FAILED

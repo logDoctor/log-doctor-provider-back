@@ -5,15 +5,20 @@ from app.core.auth import Identity
 from app.core.exceptions import NotFoundException
 from app.core.logging import get_logger
 
-from ..repository import ReportRepository
-from ..schemas import ReportSchema
+from ..repository import DiagnosisRepository, ReportRepository
+from ..schemas import DiagnosisSchema, ReportSchema
 
 logger = get_logger("get_report_use_case")
 
 
 class GetReportUseCase:
-    def __init__(self, report_repository: ReportRepository):
+    def __init__(
+        self,
+        report_repository: ReportRepository,
+        diagnosis_repository: DiagnosisRepository,
+    ):
         self.report_repository = report_repository
+        self.diagnosis_repository = diagnosis_repository
 
     async def execute(
         self, identity: Identity, report_id: str, wait_for_completion: bool = False
@@ -26,7 +31,15 @@ class GetReportUseCase:
         if wait_for_completion and report.is_analyzing:
             report = await self._wait_for_report_completion(identity, report_id, report)
 
-        return ReportSchema.model_validate(report)
+        # 진단 상세 항목 조회
+        diagnoses = await self.diagnosis_repository.list_by_report(
+            identity.tenant_id, report_id
+        )
+
+        schema = ReportSchema.model_validate(report)
+        schema.diagnoses = [DiagnosisSchema.model_validate(d) for d in diagnoses]
+
+        return schema
 
     async def _wait_for_report_completion(
         self, identity: Identity, report_id: str, initial_report: any

@@ -2,7 +2,7 @@ from app.core.exceptions import InternalServerException, NotFoundException
 from app.domains.agent.models import Agent
 from app.domains.agent.repository import AgentRepository
 from app.domains.agent.schemas import HandshakeAgentRequest, HandshakeAgentResponse
-from app.domains.tenant.repository import TenantRepository
+from app.domains.tenant.repositories import TenantRepository
 
 
 class HandshakeAgentUseCase:

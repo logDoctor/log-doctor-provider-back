@@ -15,6 +15,12 @@ class AgentStatus(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
+class AnalysisLevel(str, Enum):
+    L1 = "L1"
+    L2 = "L2"
+    L3 = "L3"
+
+
 @dataclass
 class Agent:
     id: str  # tenant_id:agent_id format for CosmosDB

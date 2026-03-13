@@ -58,7 +58,12 @@ def get_token_provider() -> TokenProvider:
     )
 
 
-@lru_cache
+_azure_credential = None
+
+
 async def get_azure_credential() -> DefaultAzureCredential:
     """DefaultAzureCredential 싱글톤 인스턴스를 반환합니다."""
-    return DefaultAzureCredential()
+    global _azure_credential
+    if _azure_credential is None:
+        _azure_credential = DefaultAzureCredential()
+    return _azure_credential

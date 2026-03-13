@@ -11,6 +11,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.health import router as health_router
 from app.api.v1.router import v1_router
+from app.core.auth.dependencies import get_azure_credential
 from app.core.config import settings
 from app.core.exceptions import LogDoctorException
 from app.core.handlers import (
@@ -28,15 +29,21 @@ from app.infra.db.cosmos import CosmosDB
 async def lifespan(app: FastAPI):
     setup_logging()
 
-    # 시작 시: DB 연결 확인
+    # 시작 시: DB 연결 및 Azure Credential 사전 로드 (Pre-warming)
+    # ACA Cold Start 시 첫 번째 요청의 지연 시간을 줄이기 위함입니다.
     logger = structlog.get_logger()
     try:
+        # DB 커넥션 풀 및 클라이언트 초기화
         await CosmosDB.validate_connection()
+        # Azure Managed Identity/Credential 초기화 (Discovery 과정 수행)
+        await get_azure_credential()
+        
+        logger.info("Startup pre-warming completed successfully")
     except Exception as e:
         print(f"!!! STARTUP ERROR: {e} !!!", file=sys.stderr)
         traceback.print_exc()
 
-        logger.critical("Could not connect to Cosmos DB. Exiting...")
+        logger.critical("Startup failed. Could not initialize infrastructure.")
         sys.exit(1)
 
     yield

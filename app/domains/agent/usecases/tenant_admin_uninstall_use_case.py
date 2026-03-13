@@ -4,7 +4,7 @@ from app.core.auth import get_token_provider
 from app.core.interfaces.azure_arm import AzureArmService
 from app.domains.agent.repository import AgentRepository
 from app.domains.agent.schemas import TenantAdminUninstallResponse
-from app.domains.tenant.repository import TenantRepository
+from app.domains.tenant.repositories import TenantRepository
 
 logger = structlog.get_logger()
 
@@ -37,10 +37,10 @@ class TenantAdminUninstallUseCase:
                 success=False, action="TENANT_NOT_FOUND"
             )
 
-        is_admin = any(
+        is_privileged = any(
             acc.get("user_id") == user_id for acc in tenant.privileged_accounts
         )
-        if not is_admin:
+        if not is_privileged:
             logger.info(
                 "Non-admin user uninstalled the app. Skipping resource cleanup.",
                 tenant_id=tenant_id,

@@ -1,5 +1,4 @@
 import structlog
-
 from app.core.auth.models import Identity
 from app.core.exceptions import NotFoundException
 from app.core.interfaces.azure_arm import AzureArmService
@@ -25,10 +24,10 @@ class DeactivateAgentUseCase:
         self.azure_arm_service = azure_arm_service
 
     async def execute(
-        self, identity: Identity, agent_id: str
+        self, identity: Identity, tenant_id: str, agent_id: str
     ) -> DeactivateAgentResponse:
-        agent = await self.agent_repository.get_active_agent_by_client_id(
-            tenant_id=identity.tenant_id, agent_id=agent_id
+        agent = await self.agent_repository.get_by_id(
+            tenant_id=tenant_id, id=agent_id
         )
         if not agent:
             raise NotFoundException(f"Agent {agent_id} not found.")

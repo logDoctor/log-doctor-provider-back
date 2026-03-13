@@ -10,7 +10,7 @@ async def admin_verify_guard(
     identity: Identity = Depends(get_current_identity),
 ) -> Identity:
     """관리자 권한을 강제하는 의존성 주입 함수입니다. (Internal dependency)"""
-    if not identity.is_admin():
+    if not identity.is_privileged():
         raise ForbiddenException(detail="Administrator privileges are required.")
 
     return identity

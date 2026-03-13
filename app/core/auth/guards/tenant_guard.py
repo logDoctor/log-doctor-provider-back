@@ -1,10 +1,13 @@
 from fastapi import Depends, Request
 
-from app.core import BadRequestException, ForbiddenException
+from app.core import (
+    BadRequestException,
+    ForbiddenException,
+    UnauthorizedException,
+)
 
 from ..dependencies import get_tenant_verifier
 from ..models import Identity
-from ..services.admin_verifier import AuthError
 from .identity_guard import get_current_identity
 
 
@@ -32,5 +35,5 @@ async def check_tenant(
 
     try:
         return tenant_verifier.verify_tenant_match(token_tid, req_tid)
-    except AuthError as e:
+    except UnauthorizedException as e:
         raise ForbiddenException(str(e)) from e

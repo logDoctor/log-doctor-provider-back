@@ -65,7 +65,7 @@ class TenantUserListAgentsUseCase:
         tenant = await self.tenant_repository.get_by_id(identity.tenant_id)
         if not tenant or not tenant.registered_at:
             # 미등록 테넌트인 경우 관리자나 역할 보유자만 허용
-            if not (identity.is_admin() or identity.roles):
+            if not identity.is_privileged():
                 return []
         else:
             # 등록된 테넌트인 경우 운영자 리스트 체크
@@ -75,7 +75,7 @@ class TenantUserListAgentsUseCase:
                 if "email" in a
             ]
             current_user_email = (identity.email or "").lower()
-            if not identity.is_admin() and current_user_email not in privileged_emails:
+            if not identity.is_privileged() and current_user_email not in privileged_emails:
                 return []
 
         # OBO 토큰을 통한 Azure 구독 목록 조회

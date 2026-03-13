@@ -10,7 +10,7 @@ from .models import Agent, AgentStatus
 # 1. Interface
 class AgentRepository(ABC):
     @abstractmethod
-    async def get_agent(self, tenant_id: str, id: str) -> Agent | None:
+    async def get_by_id(self, tenant_id: str, id: str) -> Agent | None:
         """기본키(id)로 에이전트 정보를 직접 조회합니다."""
         pass
 
@@ -49,7 +49,7 @@ class AzureAgentRepository(AgentRepository):
     def __init__(self, container: ContainerProxy):
         self.container = container
 
-    async def get_agent(self, tenant_id: str, id: str) -> Agent | None:
+    async def get_by_id(self, tenant_id: str, id: str) -> Agent | None:
         return await self.container.read_item(item=id, partition_key=tenant_id)
 
     async def get_active_agent_by_client_id(

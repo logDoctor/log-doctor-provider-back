@@ -1,5 +1,8 @@
+from structlog import get_logger
+
 from app.core.config import settings
 
+from ..constants import AppRoleName, AzureDirectoryRole, TokenClaim
 from ..models import Identity, IdentityType
 from .jwt_service import JwtService
 
@@ -21,100 +24,130 @@ class IdentityExtractor:
         if not sso_token:
             return Identity(type=IdentityType.UNKNOWN)
 
-        # Admin/User용 토큰은 서명 검증을 시도하고, 에이전트용은 페이로드만 추출합니다.
-        is_verified = True
         payload = self.jwt_service.decode_and_verify(sso_token)
         if not payload:
-            is_verified = False
-            payload = self.jwt_service.extract_payload(sso_token)
-
-        if not payload:
+            get_logger().warning(
+                "Identity extraction failed: JWT verification returned None. "
+                "Check JwtService logs for 'Audience doesn't match' or other verification errors."
+            )
             return Identity(type=IdentityType.UNKNOWN)
 
         tid = self._get_tenant_id(payload)
-        is_platform_tenant = (
+        is_platform_tenant = self._is_platform_tenant(tid)
+
+        wids = payload.get(TokenClaim.WIDS, [])
+        if not isinstance(wids, list):
+            wids = [wids]
+
+        groups = payload.get(TokenClaim.GROUPS, [])
+        if isinstance(groups, str):
+            groups = [groups]
+
+        roles = payload.get(TokenClaim.ROLES, [])
+        if isinstance(roles, str):
+            roles = [roles]
+
+        # 1. wids와 groups를 뒤져서 "Azure 전역 관리자"인지 확인 (ID로 비교)
+        is_directory_admin = self._is_directory_admin(wids, groups)
+
+        # 2. 사용자 정보(UPN, Email 등)가 전혀 없고 APPID/AZP만 있는 경우 "기계(Machine)" 신원으로 판별
+        # (Entra ID에서 발급한 앱 전용 토근 특징)
+        is_machine = self._is_machine(payload)
+
+        # 3. roles를 뒤져서 "우리 앱 전담 관리자"인지 확인 (문자열로 비교)
+        identity_type = self._resolve_identity_type(
+            roles, is_directory_admin, is_platform_tenant, is_machine
+        )
+
+        return Identity(
+            type=identity_type,
+            id=payload.get(TokenClaim.OID) or payload.get(TokenClaim.SUB),
+            name=payload.get(TokenClaim.NAME)
+            or payload.get(TokenClaim.PREFERRED_USERNAME)
+            or payload.get(TokenClaim.APPID),
+            email=payload.get(TokenClaim.PREFERRED_USERNAME)
+            or payload.get(TokenClaim.UPN),
+            roles=roles,
+            wids=wids,
+            groups=groups,
+            tenant_id=tid,
+            sso_token=sso_token,
+        )
+
+    def _is_directory_admin(self, wids: list[str], groups: list[str]) -> bool:
+        """
+        wids(Directory Roles)와 groups를 뒤져서 "Azure 전역 관리자"인지 확인합니다.
+        Azure AD에서 사전에 정의된 고유 ID(UUID)를 기반으로 비교합니다.
+        """
+        combined_indicators = set(wids) | set(groups)
+        return any(
+            rid in AzureDirectoryRole.ADMIN_CONSENT_CAPABLE_ROLES
+            for rid in combined_indicators
+        )
+
+    def _resolve_identity_type(
+        self,
+        roles: list[str],
+        is_directory_admin: bool,
+        is_platform_tenant: bool,
+        is_machine: bool,
+    ) -> IdentityType:
+        """
+        App Role과 Azure Directory Role을 결합하여 최종 신원 유형을 결정합니다.
+        """
+
+        # 앱 전용 역할(App Roles) 확인
+        is_platform_role = AppRoleName.PLATFORM_ADMIN in roles
+        is_tenant_role = AppRoleName.TENANT_ADMIN in roles
+        is_privileged_role = AppRoleName.PRIVILEGED_USER in roles
+
+        # 1. 플랫폼 관리자 (Platform Provider)
+        if is_platform_tenant and (
+            is_platform_role or is_tenant_role or is_directory_admin
+        ):
+            return IdentityType.PLATFORM_ADMIN
+
+        # 2. 테넌트 관리자 (Customer Administrator)
+        if is_tenant_role or is_directory_admin:
+            return IdentityType.TENANT_ADMIN
+
+        # 3. 위임된 운영자 (Privileged User)
+        if is_privileged_role:
+            return IdentityType.PRIVILEGED_USER
+
+        # 4. 자동화 기계 신원 (CI/CD / Service Principal)
+        if is_machine:
+            return IdentityType.CI_CD
+
+        # 5. 일반 사용자 (Default)
+        return IdentityType.USER
+
+    def _is_platform_tenant(self, tid: str | None) -> bool:
+        """
+        현재 테넌트가 플랫폼 운영사의 테넌트인지 확인합니다.
+        """
+        return (
             tid is not None
             and settings.TENANT_ID is not None
             and tid.lower() == settings.TENANT_ID.lower()
         )
-        # TODO: 운영팀이 별도 테넌트(B)를 사용할 경우, settings.TENANT_ID와의 비교 로직을 허용 테넌트 리스트 체크로 확장해야 함.
 
-        admin_role_ids = [
-            "62e90394-69f5-4237-9190-012177145e10",  # Global Administrator
-            "9b89c20d-ad03-4503-ad20-039103212108",  # Application Administrator
-            "158c15cc-0570-44c1-848e-0f04dc22312b",  # Cloud Application Administrator
-            "e8611eb8-c13f-4745-8462-24867d9a65ed",  # Privileged Role Administrator
-            "fe930be7-5e62-47db-91af-98c3a49a38b1",  # User Administrator
-            "f28a1fec-99ee-474b-8393-8cfb46ac3f29",  # Billing Administrator
-        ]
-
-        wids = payload.get("wids", [])
-        if not isinstance(wids, list):
-            wids = [wids]
-
-        roles = payload.get("roles", [])
-        if isinstance(roles, str):
-            roles = [roles]
-
-        # 관리자 역할 보유 여부 확인
-        has_admin_role = any(rid in wids for rid in admin_role_ids) or any(
-            r
-            in [
-                "GlobalAdmin",
-                "Company Administrator",
-                "TenantAdmin",
-                "Admin",
-                "Administrator",
-            ]
-            for r in roles
-        )
-
-        # 기계 계정(CI/CD) 판별
-        # 🛡️ [SECURITY] azp/appid는 일반 사용자 토큰에도 항상 포함되므로, 이것만으로 기계 계정이라 판단하면 위험합니다.
-        # v2 토큰의 idtyp 클레임을 우선하거나, 사용자 정보(upn, preferred_username)가 없는 경우로 한정합니다.
-        is_machine = payload.get("idtyp") == "app" or (
-            not payload.get("upn")
-            and not payload.get("preferred_username")
-            and (payload.get("appid") or payload.get("azp"))
-        )
-
-        # 등급 결정 (우선순위: Platform > Tenant > Machine > User)
-        if has_admin_role and is_platform_tenant:
-            identity_type = IdentityType.PLATFORM_ADMIN
-        elif has_admin_role:
-            identity_type = IdentityType.TENANT_ADMIN
-        elif is_machine:
-            identity_type = IdentityType.CI_CD
-        else:
-            identity_type = IdentityType.USER
-
-        # 🛡️ [SECURITY] 서명 검증에 실패한 토큰인 경우, 권한을 부여하지 않고 UNKNOWN으로 처리합니다.
-        if not is_verified:
-            identity_type = IdentityType.UNKNOWN
-
-        return Identity(
-            type=identity_type,
-            id=payload.get("oid") or payload.get("sub"),
-            name=payload.get("name")
-            or payload.get("preferred_username")
-            or payload.get("appid"),
-            email=payload.get("preferred_username") or payload.get("upn"),
-            roles=roles,
-            tenant_id=tid,
-            sso_token=sso_token,
+    def _is_machine(self, payload: dict) -> bool:
+        return (
+            not payload.get(TokenClaim.UPN)
+            and not payload.get(TokenClaim.PREFERRED_USERNAME)
+            and (payload.get(TokenClaim.APPID) or payload.get(TokenClaim.AZP))
         )
 
     def _get_tenant_id(self, payload: dict) -> str | None:
         """
         다양한 클레임 명칭에서 테넌트 ID를 추출합니다.
-        tid, tenantid, http://schemas.microsoft.com/identity/claims/tenantid 등 대응
         """
-        tenant_schema = "http://schemas.microsoft.com/identity/claims/tenantid"
         tid = (
-            payload.get("tid")
-            or payload.get("tenantid")
-            or payload.get(tenant_schema)
-            or payload.get("tenant_id")
+            payload.get(TokenClaim.TID)
+            or payload.get(TokenClaim.TENANTID)
+            or payload.get(TokenClaim.MICROSOFT_TENANT_SCHEMA)
+            or payload.get(TokenClaim.TENANT_ID)
         )
 
         if isinstance(tid, str) and tid.lower() in ["none", "undefined", "null", ""]:
@@ -129,5 +162,4 @@ class IdentityExtractor:
                 tid=tid,
                 available_keys=list(payload.keys()),
             )
-
         return tid

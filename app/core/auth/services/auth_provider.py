@@ -14,7 +14,9 @@ class TokenProvider(ABC):
     """토큰 발급자 추상 머신"""
 
     @abstractmethod
-    async def get_obo_token(self, sso_token: str) -> str:
+    async def get_obo_token(
+        self, sso_token: str, scopes: list[str] | None = None
+    ) -> str:
         """SSO 토큰을 On-Behalf-Of 액세스 토큰으로 교환합니다."""
         pass
 
@@ -25,11 +27,18 @@ class TokenProvider(ABC):
         """클라이언트 자격 증명을 사용하여 앱 전역 권한 토큰을 획득합니다."""
         pass
 
+    @abstractmethod
+    async def get_bot_token(self) -> str:
+        """Teams Bot Framework용 전용 토큰을 획득합니다."""
+        pass
+
 
 class MockTokenProvider(TokenProvider):
     """로컬 개발 및 테스트를 위한 가짜 토큰 발급 구현체"""
 
-    async def get_obo_token(self, sso_token: str) -> str:
+    async def get_obo_token(
+        self, sso_token: str, scopes: list[str] | None = None
+    ) -> str:
         logger.info("Mock authentication method detected, returning dummy token")
         return f"mock_token_for_{sso_token[:10]}"
 
@@ -42,6 +51,10 @@ class MockTokenProvider(TokenProvider):
         )
         return f"mock_app_token_for_{tid}"
 
+    async def get_bot_token(self) -> str:
+        logger.info("Mock authentication method detected, returning dummy bot token")
+        return "mock_bot_token"
+
 
 class EntraIDTokenProvider(TokenProvider):
     """Azure Entra ID를 사용한 토큰 발급 구현체"""
@@ -50,7 +63,9 @@ class EntraIDTokenProvider(TokenProvider):
         self.jwt_service = jwt_service
         self._client_secret = client_secret
 
-    async def get_obo_token(self, sso_token: str) -> str:
+    async def get_obo_token(
+        self, sso_token: str, scopes: list[str] | None = None
+    ) -> str:
         payload = self.jwt_service.extract_payload(sso_token)
 
         if self._is_already_management_token(payload):
@@ -59,7 +74,9 @@ class EntraIDTokenProvider(TokenProvider):
 
         tid = payload.get("tid") or "common"
         authority = f"https://login.microsoftonline.com/{tid}"
-        scopes = ["https://management.azure.com/user_impersonation"]
+        final_scopes = scopes or [
+            "https://management.azure.com/user_impersonation"
+        ]
 
         app = msal.ConfidentialClientApplication(
             settings.CLIENT_ID,
@@ -69,7 +86,7 @@ class EntraIDTokenProvider(TokenProvider):
 
         try:
             result = app.acquire_token_on_behalf_of(
-                user_assertion=sso_token, scopes=scopes
+                user_assertion=sso_token, scopes=final_scopes
             )
         except Exception as e:
             logger.error("MSAL OBO system error", error=str(e))
@@ -108,6 +125,33 @@ class EntraIDTokenProvider(TokenProvider):
         )
         raise UnauthorizedException(
             f"Failed to acquire app-only token: {result.get('error')}"
+        )
+
+    async def get_bot_token(self) -> str:
+        """Teams Bot Framework용 전용 토큰을 획득합니다."""
+        # 봇 토큰은 테넌트에 종속되지 않은 전용 엔드포인트를 사용합니다.
+        authority = "https://login.microsoftonline.com/botframework.com"
+        scopes = ["https://api.botframework.com/.default"]
+
+        app = msal.ConfidentialClientApplication(
+            settings.CLIENT_ID,
+            authority=authority,
+            client_credential=self._client_secret,
+        )
+
+        # 봇 토큰은 클라이언트 자격 증명(Client Credentials) 흐름을 사용합니다.
+        result = app.acquire_token_for_client(scopes=scopes)
+
+        if "access_token" in result:
+            return result.get("access_token")
+
+        logger.error(
+            "Failed to acquire bot token",
+            error=result.get("error"),
+            desc=result.get("error_description"),
+        )
+        raise UnauthorizedException(
+            f"Failed to acquire bot token: {result.get('error')}"
         )
 
     def _is_already_management_token(self, payload: dict) -> bool:

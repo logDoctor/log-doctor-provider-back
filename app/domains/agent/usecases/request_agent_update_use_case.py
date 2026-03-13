@@ -39,8 +39,8 @@ class RequestAgentUpdateUseCase:
         agent_id: str,
         target_version: str = "latest",
     ) -> RequestAgentUpdateResponse:
-        agent = await self.agent_repository.get_active_agent_by_client_id(
-            tenant_id=tenant_id, agent_id=agent_id
+        agent = await self.agent_repository.get_by_id(
+            tenant_id=tenant_id, id=agent_id
         )
         if not agent:
             raise NotFoundException(f"Agent {agent_id} not found.")

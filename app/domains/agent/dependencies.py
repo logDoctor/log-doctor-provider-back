@@ -1,5 +1,3 @@
-from functools import lru_cache
-
 from fastapi import Depends
 
 from app.core.interfaces.azure_arm import AzureArmService
@@ -26,13 +24,11 @@ from .usecases import (
 )
 
 
-@lru_cache
 async def get_agent_repository() -> AgentRepository:
     container = await CosmosDB.get_container("agents")
     return AzureAgentRepository(container)
 
 
-@lru_cache
 def get_handshake_agent_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
     tenant_repository: TenantRepository = Depends(get_tenant_repository),
@@ -40,7 +36,6 @@ def get_handshake_agent_use_case(
     return HandshakeAgentUseCase(repository, tenant_repository)
 
 
-@lru_cache
 def get_tenant_user_list_agents_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
     subscription_repository: SubscriptionRepository = Depends(
@@ -53,14 +48,12 @@ def get_tenant_user_list_agents_use_case(
     )
 
 
-@lru_cache
 def get_platform_admin_list_agents_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
 ) -> PlatformAdminListAgentsUseCase:
     return PlatformAdminListAgentsUseCase(repository)
 
 
-@lru_cache
 def get_deactivate_agent_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
     azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
@@ -68,7 +61,6 @@ def get_deactivate_agent_use_case(
     return DeactivateAgentUseCase(repository, azure_arm_service)
 
 
-@lru_cache
 def get_check_azure_resource_group_status_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
     azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
@@ -76,14 +68,12 @@ def get_check_azure_resource_group_status_use_case(
     return CheckAzureResourceGroupStatusUseCase(repository, azure_arm_service)
 
 
-@lru_cache
 def get_confirm_agent_deletion_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
 ) -> ConfirmAgentDeletionUseCase:
     return ConfirmAgentDeletionUseCase(repository)
 
 
-@lru_cache
 def get_request_agent_update_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
     package_repository: AgentPackageRepository = Depends(get_agent_package_repository),
@@ -92,7 +82,6 @@ def get_request_agent_update_use_case(
     return RequestAgentUpdateUseCase(repository, package_repository, azure_arm_service)
 
 
-@lru_cache
 def get_tenant_admin_uninstall_use_case(
     tenant_repository: TenantRepository = Depends(get_tenant_repository),
     agent_repository: AgentRepository = Depends(get_agent_repository),

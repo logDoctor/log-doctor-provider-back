@@ -20,7 +20,7 @@ from .usecases import (
 )
 
 # 에이전트 패키지 관리 API
-router = APIRouter(prefix="/packages", tags=["Packages"])
+router = APIRouter(tags=["Packages"])
 
 
 @cbv(router)

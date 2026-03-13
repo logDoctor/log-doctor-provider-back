@@ -49,6 +49,8 @@ class ConflictException(LogDoctorException):
         super().__init__(message, code="CONFLICT", status_code=409)
 
 
+
+
 class InternalServerException(LogDoctorException):
     """서버 내부 오류 발생 시 발생하는 예외입니다."""
 

@@ -1,7 +1,5 @@
 from pydantic import BaseModel, ConfigDict
 
-from app.domains.agent.models import AgentStatus
-
 
 class HandshakeAgentRequest(BaseModel):
     tenant_id: str
@@ -26,6 +24,7 @@ class AgentCommandMessage(BaseModel):
 
     agent_id: str
     trace_id: str | None = None
+    report_id: str | None = None
     command: str
     params: dict | None = None
 
@@ -33,7 +32,7 @@ class AgentCommandMessage(BaseModel):
 class AgentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    agent_id: str
+    id: str
     tenant_id: str
     subscription_id: str
     resource_group_name: str
@@ -65,13 +64,6 @@ class PlatformAdminListAgentsResponse(PaginatedAgentResponse):
 
 class TenantUserListAgentsResponse(PaginatedAgentResponse):
     pass
-
-
-class AgentUpdateRequest(BaseModel):
-    """에이전트 상태 및 설정 변경 요청 (PATCH)"""
-
-    status: AgentStatus | None = None
-    tenant_id: str
 
 
 class DeactivateAgentResponse(BaseModel):
