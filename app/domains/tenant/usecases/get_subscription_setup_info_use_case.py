@@ -22,17 +22,11 @@ class GetSubscriptionSetupInfoUseCase:
     async def execute(
         self, subscription_id: str, base_url: str, identity: Identity
     ) -> SubscriptionSetupResponse:
-        bicep_url = f"{base_url}/api/v1/templates/client-setup.json"
+        bicep_url = f"{base_url}/api/v1/templates/client-setup.json?tenant_id={identity.tenant_id}"
 
-        package_info = await self.repository.get_by_version("latest")
-        package_url = f"{base_url}{package_info.url}" if package_info else ""
+        # package_url은 이제 템플릿 엔드포인트(template.py)에서 직접 주입하므로 여기서 계산할 필요가 없습니다.
 
         parameters = {
-            "resourceGroupName": {"value": f"rg-logdoctor-{subscription_id[:8]}"},
-            "appName": {"value": f"logdr-client-{subscription_id[:8]}"},
-            "env": {"value": "prod"},
-            "providerUrl": {"value": base_url},
-            "packageUrl": {"value": package_url},
             "deploymentId": {"value": datetime.now(UTC).strftime("%Y%m%d%H%M%S")},
         }
 

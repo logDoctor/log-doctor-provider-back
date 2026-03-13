@@ -19,8 +19,7 @@ class GetSubscriptionsUseCase:
         is_registered = tenant and tenant.registered_at
 
         if not is_registered:
-            has_permission = identity.is_admin() or len(identity.roles) > 0
-            if not has_permission:
+            if not identity.is_privileged():
                 raise UnauthorizedException(
                     "ACCESS_DENIED|NOT_ASSIGNED|You do not have permission to use LogDoctor. "
                     "Please have your administrator assign an app role in 'Enterprise Applications'."
@@ -37,7 +36,7 @@ class GetSubscriptionsUseCase:
 
         if (
             is_registered
-            and not identity.is_admin()
+            and not identity.is_privileged()
             and current_user_email not in privileged_emails
         ):
             display_emails = ", ".join(privileged_emails)

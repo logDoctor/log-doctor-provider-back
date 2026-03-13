@@ -3,6 +3,30 @@ from datetime import UTC, datetime
 
 
 @dataclass
+class TeamsInfo:
+    team_id: str | None = None
+    channel_id: str | None = None
+    service_url: str | None = None
+
+    @staticmethod
+    def from_dict(data: dict | None) -> "TeamsInfo | None":
+        if not data:
+            return None
+        return TeamsInfo(
+            team_id=data.get("team_id"),
+            channel_id=data.get("channel_id"),
+            service_url=data.get("service_url"),
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "team_id": self.team_id,
+            "channel_id": self.channel_id,
+            "service_url": self.service_url,
+        }
+
+
+@dataclass
 class Tenant:
     id: str
     tenant_id: str
@@ -11,6 +35,7 @@ class Tenant:
     privileged_accounts: list[dict[str, str]] = field(
         default_factory=list
     )  # [{"email": "...", "user_id": "..."}]
+    teams_info: TeamsInfo | None = None
 
     @staticmethod
     def register(tenant_id: str) -> "Tenant":
@@ -22,6 +47,7 @@ class Tenant:
             created_at=now,
             registered_at=now,
             privileged_accounts=[],
+            teams_info=None,
         )
 
     @staticmethod
@@ -33,6 +59,7 @@ class Tenant:
             created_at=data["created_at"],
             registered_at=data.get("registered_at"),
             privileged_accounts=data.get("privileged_accounts", []),
+            teams_info=TeamsInfo.from_dict(data.get("teams_info")),
         )
 
     def to_dict(self) -> dict:
@@ -43,6 +70,7 @@ class Tenant:
             "created_at": self.created_at,
             "registered_at": self.registered_at,
             "privileged_accounts": self.privileged_accounts or [],
+            "teams_info": self.teams_info.to_dict() if self.teams_info else None,
         }
 
     def add_privileged_account(self, email: str, user_id: str) -> None:

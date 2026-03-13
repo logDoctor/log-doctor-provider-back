@@ -9,6 +9,7 @@ from .tenant_schemas import (
     PrivilegedAccountResponse,
     RegisterTenantRequest,
     RegisterTenantResponse,
+    TeamsInfoPayload,
     UpdateTenantRequest,
     UpdateTenantResponse,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "PrivilegedAccountResponse",
     "RegisterTenantRequest",
     "RegisterTenantResponse",
+    "TeamsInfoPayload",
     "UpdateTenantRequest",
     "UpdateTenantResponse",
     "GetTenantStatusResponse",

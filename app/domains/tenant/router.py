@@ -6,6 +6,7 @@ from app.core.auth.models import Identity
 from app.core.routing import APIRouter
 
 from .dependencies import (
+    get_list_channels_use_case,
     get_register_tenant_use_case,
     get_subscription_setup_info_use_case,
     get_subscriptions_use_case,
@@ -25,11 +26,12 @@ from .usecases import (
     GetSubscriptionSetupInfoUseCase,
     GetSubscriptionsUseCase,
     GetTenantStatusUseCase,
+    ListChannelsUseCase,
     RegisterTenantUseCase,
     UpdateTenantUseCase,
 )
 
-router = APIRouter(prefix="/tenants", tags=["Tenant"])
+router = APIRouter(tags=["Tenant"])
 
 
 @cbv(router)
@@ -55,7 +57,7 @@ class TenantRouter:
         ),
     ):
         """
-        생성된 테넌트의 정보(운영자 계정 리스트 등)를 부분 업데이트합니다.
+        생성된 테넌트의 정보(운영자 계정 리스트, 알림 채널 등)를 부분 업데이트합니다.
         """
         return await update_tenant_use_case.execute(identity, request)
 
@@ -72,8 +74,22 @@ class TenantRouter:
         SSO 헤더 정보를 바탕으로 명시적으로 테넌트를 생성(가입)합니다.
         """
         return await register_tenant_use_case.execute(
-            identity, request.privileged_accounts
+            identity,
+            request.privileged_accounts,
+            teams_info=request.teams_info,
         )
+
+    @router.get("/me/channels", response_model=list[dict])
+    async def list_available_channels(
+        self,
+        team_id: str,
+        identity: Identity = Depends(get_current_identity),
+        use_case: ListChannelsUseCase = Depends(get_list_channels_use_case),
+    ):
+        """
+        현재 팀 내의 알림 수신 가능한 채널 목록을 조회합니다.
+        """
+        return await use_case.execute(identity.tenant_id, team_id)
 
     # --- Subscription 관련 엔드포인트 통합 ---
 

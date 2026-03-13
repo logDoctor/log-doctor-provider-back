@@ -13,8 +13,17 @@ class PrivilegedAccountResponse(BaseModel):
     user_id: str
 
 
+
+
+class TeamsInfoPayload(BaseModel):
+    team_id: str | None = None
+    channel_id: str | None = None
+    service_url: str | None = None
+
+
 class RegisterTenantRequest(BaseModel):
     privileged_accounts: list[PrivilegedAccountRequest] = []
+    teams_info: TeamsInfoPayload | None = None
 
     @field_validator("privileged_accounts", mode="before")
     @classmethod
@@ -31,11 +40,13 @@ class RegisterTenantResponse(BaseModel):
     tenant_id: str
     registered_at: datetime | None = None
     privileged_accounts: list[PrivilegedAccountResponse] = []
+    teams_info: TeamsInfoPayload | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
 class UpdateTenantRequest(BaseModel):
     privileged_accounts: list[PrivilegedAccountRequest] | None = None
+    teams_info: TeamsInfoPayload | None = None
 
     @field_validator("privileged_accounts", mode="before")
     @classmethod
@@ -52,6 +63,7 @@ class UpdateTenantResponse(BaseModel):
     tenant_id: str
     registered_at: datetime | None = None
     privileged_accounts: list[PrivilegedAccountResponse] = []
+    teams_info: TeamsInfoPayload | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -59,6 +71,5 @@ class GetTenantStatusResponse(BaseModel):
     tenant_id: str
     registered_at: datetime | None = None
     privileged_accounts: list[PrivilegedAccountResponse] = []
-    model_config = ConfigDict(from_attributes=True)
-    privileged_accounts: list[PrivilegedAccountResponse] = []
+    teams_info: TeamsInfoPayload | None = None
     model_config = ConfigDict(from_attributes=True)

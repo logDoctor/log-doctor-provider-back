@@ -3,8 +3,14 @@ import structlog
 from app.core.auth.models import Identity
 from app.core.auth.services.graph_service import GraphService
 from app.core.exceptions import NotFoundException, UnauthorizedException
-from app.domains.tenant.repository import TenantRepository
-from app.domains.tenant.schemas import UpdateTenantRequest, UpdateTenantResponse
+from app.domains.tenant.models import TeamsInfo
+from app.domains.tenant.schemas import (
+    TeamsInfoPayload,
+    UpdateTenantRequest,
+    UpdateTenantResponse,
+)
+
+from ..repositories import TenantRepository
 
 logger = structlog.get_logger()
 
@@ -24,7 +30,7 @@ class UpdateTenantUseCase:
     ) -> UpdateTenantResponse:
         tid = identity.tenant_id
 
-        if not identity.is_admin():
+        if not identity.is_privileged():
             raise UnauthorizedException(
                 "ACCESS_DENIED|NOT_ASSIGNED|You do not have permission to modify tenant settings."
             )
@@ -34,6 +40,17 @@ class UpdateTenantUseCase:
             raise NotFoundException(
                 "TENANT_NOT_REGISTERED|Tenant information not found."
             )
+
+        if payload.teams_info is not None:
+            if not tenant_entity.teams_info:
+                tenant_entity.teams_info = TeamsInfo()
+
+            if payload.teams_info.team_id is not None:
+                tenant_entity.teams_info.team_id = payload.teams_info.team_id
+            if payload.teams_info.channel_id is not None:
+                tenant_entity.teams_info.channel_id = payload.teams_info.channel_id
+            if payload.teams_info.service_url is not None:
+                tenant_entity.teams_info.service_url = payload.teams_info.service_url
 
         if payload.privileged_accounts is not None:
             account_map = {
@@ -60,9 +77,21 @@ class UpdateTenantUseCase:
             for email, user_id in account_map.items():
                 tenant_entity.add_privileged_account(email, user_id)
 
-            ids_to_assign = [uid for uid in account_map.values() if uid]
-            await self.graph_service.assign_users_to_app(tid, ids_to_assign)
+            admin_id = identity.id
+            privileged_role_id = "84825946-5f5c-437b-96d5-66d499999a03"
 
+            # 기존/신규 추가된 운영자들 중, 나(Admin)를 제외한 나머지에게 PrivilegedUser 역할 할당
+            ids_to_assign = [
+                uid for uid in account_map.values() if uid and uid != admin_id
+            ]
+            if ids_to_assign:
+                await self.graph_service.assign_users_to_app(
+                    tid, ids_to_assign, privileged_role_id
+                )
+
+            saved_tenant_entity = await self.repository.upsert(tenant_entity)
+        elif payload.teams_info is not None:
+            # privileged_accounts가 없어도 teams_info가 있으면 저장해야 함
             saved_tenant_entity = await self.repository.upsert(tenant_entity)
         else:
             saved_tenant_entity = tenant_entity
@@ -71,4 +100,11 @@ class UpdateTenantUseCase:
             tenant_id=saved_tenant_entity.tenant_id,
             registered_at=saved_tenant_entity.registered_at,
             privileged_accounts=saved_tenant_entity.privileged_accounts,
+            teams_info=TeamsInfoPayload(
+                team_id=saved_tenant_entity.teams_info.team_id,
+                channel_id=saved_tenant_entity.teams_info.channel_id,
+                service_url=saved_tenant_entity.teams_info.service_url,
+            )
+            if saved_tenant_entity.teams_info
+            else None,
         )
