@@ -43,21 +43,6 @@ class ReportRouter:
             request=request,
         )
 
-    @router.get("/{report_id}", response_model=ReportSchema)
-    async def get_report(
-        self,
-        report_id: str,
-        wait: bool = False,
-        identity: Identity = Depends(get_current_identity),
-        use_case: GetReportUseCase = Depends(get_get_report_use_case),
-    ):
-        """리포트의 현재 상태를 조회합니다. wait=true 이면 완료될 때까지 대기(Long-polling)합니다."""
-        return await use_case.execute(
-            identity=identity,
-            report_id=report_id,
-            wait_for_completion=wait,
-        )
-
     @router.post("/{report_id}/diagnoses")
     async def receive_diagnoses(
         self,
@@ -94,3 +79,18 @@ class ReportRouter:
         )
 
         return {"status": "success"}
+
+    @router.get("/{report_id}", response_model=ReportSchema)
+    async def get_report(
+        self,
+        report_id: str,
+        wait: bool = False,
+        identity: Identity = Depends(get_current_identity),
+        use_case: GetReportUseCase = Depends(get_get_report_use_case),
+    ):
+        """리포트의 현재 상태를 조회합니다. wait=true 이면 완료될 때까지 대기(Long-polling)합니다."""
+        return await use_case.execute(
+            identity=identity,
+            report_id=report_id,
+            wait_for_completion=wait,
+        )
