@@ -1,12 +1,26 @@
 targetScope = 'subscription'
 
-param location string = 'koreacentral'
-param appName string = 'logdoctor-client'
-param env string = 'dev'
-param resourceGroupName string = 'rg-logdoctor-client'
+var location = deployment().location
+
+param appName string = 'logdoctor'
+
+param resourceGroupName string = 'rg-logdoctor'
+
+var env = 'prod'
+
+@metadata({ hidden: true })
 param providerUrl string = ''
+
+@metadata({ hidden: true })
 param packageUrl string = ''
+
+@metadata({ hidden: true })
 param providerClientId string = ''
+
+@metadata({ hidden: true })
+param providerPrincipalId string = ''
+
+@metadata({ hidden: true })
 @description('매 배포마다 고유 값을 전달하여 ARM이 설정 변경으로 인식하도록 합니다. Bicep 내부에서는 사용하지 않습니다.')
 #disable-next-line no-unused-params
 param deploymentId string = ''
@@ -36,6 +50,7 @@ module functions 'modules/functions.bicep' = {
     subscriptionId: subscription().subscriptionId
     packageUrl: packageUrl
     providerClientId: providerClientId
+    providerPrincipalId: providerPrincipalId
   }
 }
 

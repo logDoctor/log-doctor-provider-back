@@ -115,7 +115,12 @@ def cosmos_error_handler(func=None, *, map_to=None):
                     return map_to.from_dict(result)
                 return result
             except CosmosResourceNotFoundError:
-                return None
+                # 🔍 [FIX] 조회(Read) 연산에서만 404 에러를 None으로 처리합니다.
+                # 생성/수정/삭제 연산에서 404가 발생하면(컨테이너 부재 등) 예외를 던져서 Silent Failure를 방지합니다.
+                read_methods = ("get_", "read_", "list_", "query_")
+                if f.__name__.startswith(read_methods):
+                    return None
+                raise
             except Exception as e:
                 logger.error(
                     f"Cosmos DB Error in {f.__name__}",

@@ -7,6 +7,7 @@ param tenantId string
 param subscriptionId string
 param packageUrl string = ''
 param providerClientId string = ''
+param providerPrincipalId string = ''
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
@@ -19,6 +20,16 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     supportsHttpsTrafficOnly: true
     defaultToOAuthAuthentication: true
   }
+}
+
+resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2023-01-01' = {
+  parent: storageAccount
+  name: 'default'
+}
+
+resource analysisRequestsQueue 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-01-01' = {
+  parent: queueService
+  name: 'analysis-requests'
 }
 
 
@@ -141,6 +152,23 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       ]
     }
     httpsOnly: true
+  }
+}
+
+// --- RBAC Role Assignments ---
+
+// Storage Queue Data Message Sender 역할 정의 (Built-in)
+resource storageQueueDataMessageSenderRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  scope: subscription()
+  name: 'c6a89b2d-59bc-44d0-9896-0f6e12d7b80a'
+}
+resource providerQueueRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(providerPrincipalId)) {
+  name: guid(storageAccount.id, providerPrincipalId, storageQueueDataMessageSenderRole.id)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: storageQueueDataMessageSenderRole.id
+    principalId: providerPrincipalId
+    principalType: 'ServicePrincipal'
   }
 }
 

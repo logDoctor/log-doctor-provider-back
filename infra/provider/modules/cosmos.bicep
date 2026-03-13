@@ -56,6 +56,28 @@ resource tenantsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
   }
 }
 
+resource reportsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
+  parent: cosmosDb
+  name: 'reports'
+  properties: {
+    resource: {
+      id: 'reports'
+      partitionKey: { paths: [ '/tenant_id' ], kind: 'Hash' }
+    }
+  }
+}
+
+resource diagnosesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
+  parent: cosmosDb
+  name: 'diagnoses'
+  properties: {
+    resource: {
+      id: 'diagnoses'
+      partitionKey: { paths: [ '/report_id' ], kind: 'Hash' }
+    }
+  }
+}
+
 output cosmosAccountId string = cosmosAccount.id
 output cosmosAccountName string = cosmosAccount.name
 output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint

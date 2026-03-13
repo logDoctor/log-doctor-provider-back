@@ -4,59 +4,70 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.40.2.10011",
-      "templateHash": "16456480770062350457"
+      "version": "0.41.2.15936",
+      "templateHash": "5363573758226066850"
     }
   },
   "parameters": {
-    "location": {
-      "type": "string",
-      "defaultValue": "koreacentral"
-    },
     "appName": {
       "type": "string",
-      "defaultValue": "logdoctor-client"
-    },
-    "env": {
-      "type": "string",
-      "defaultValue": "dev"
+      "defaultValue": "logdoctor"
     },
     "resourceGroupName": {
       "type": "string",
-      "defaultValue": "rg-logdoctor-client"
+      "defaultValue": "rg-logdoctor"
     },
     "providerUrl": {
       "type": "string",
-      "defaultValue": ""
+      "defaultValue": "",
+      "metadata": {
+        "hidden": true
+      }
     },
     "packageUrl": {
       "type": "string",
-      "defaultValue": ""
+      "defaultValue": "",
+      "metadata": {
+        "hidden": true
+      }
     },
     "providerClientId": {
       "type": "string",
-      "defaultValue": ""
+      "defaultValue": "",
+      "metadata": {
+        "hidden": true
+      }
+    },
+    "providerPrincipalId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "hidden": true
+      }
     },
     "deploymentId": {
       "type": "string",
       "defaultValue": "",
       "metadata": {
+        "hidden": true,
         "description": "매 배포마다 고유 값을 전달하여 ARM이 설정 변경으로 인식하도록 합니다. Bicep 내부에서는 사용하지 않습니다."
       }
     }
   },
   "variables": {
+    "location": "[deployment().location]",
+    "env": "prod",
     "uniqueId": "[uniqueString(subscription().subscriptionId, subscription().tenantId)]",
     "storageAccountName": "[format('st{0}', toLower(variables('uniqueId')))]",
-    "functionAppName": "[format('{0}-{1}-fn-{2}', parameters('appName'), parameters('env'), variables('uniqueId'))]",
-    "appServicePlanName": "[format('{0}-{1}-plan', parameters('appName'), parameters('env'))]"
+    "functionAppName": "[format('{0}-{1}-fn-{2}', parameters('appName'), variables('env'), variables('uniqueId'))]",
+    "appServicePlanName": "[format('{0}-{1}-plan', parameters('appName'), variables('env'))]"
   },
   "resources": [
     {
       "type": "Microsoft.Resources/resourceGroups",
       "apiVersion": "2021-04-01",
       "name": "[parameters('resourceGroupName')]",
-      "location": "[parameters('location')]"
+      "location": "[variables('location')]"
     },
     {
       "type": "Microsoft.Resources/deployments",
@@ -70,7 +81,7 @@
         "mode": "Incremental",
         "parameters": {
           "location": {
-            "value": "[parameters('location')]"
+            "value": "[variables('location')]"
           },
           "functionAppName": {
             "value": "[variables('functionAppName')]"
@@ -95,6 +106,9 @@
           },
           "providerClientId": {
             "value": "[parameters('providerClientId')]"
+          },
+          "providerPrincipalId": {
+            "value": "[parameters('providerPrincipalId')]"
           }
         },
         "template": {
@@ -103,8 +117,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "17994882782185239923"
+              "version": "0.41.2.15936",
+              "templateHash": "16081707444126291483"
             }
           },
           "parameters": {
@@ -136,6 +150,10 @@
             "providerClientId": {
               "type": "string",
               "defaultValue": ""
+            },
+            "providerPrincipalId": {
+              "type": "string",
+              "defaultValue": ""
             }
           },
           "resources": [
@@ -152,6 +170,22 @@
                 "supportsHttpsTrafficOnly": true,
                 "defaultToOAuthAuthentication": true
               }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/queueServices",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/queueServices/queues",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', parameters('storageAccountName'), 'default', 'analysis-requests')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/queueServices', parameters('storageAccountName'), 'default')]"
+              ]
             },
             {
               "type": "Microsoft.OperationalInsights/workspaces",
@@ -283,6 +317,21 @@
               "dependsOn": [
                 "[resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName')))]",
                 "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('providerPrincipalId')))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('providerPrincipalId'), subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'c6a89b2d-59bc-44d0-9896-0f6e12d7b80a'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'c6a89b2d-59bc-44d0-9896-0f6e12d7b80a')]",
+                "principalId": "[parameters('providerPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
                 "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
               ]
             }

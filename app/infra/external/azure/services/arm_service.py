@@ -2,6 +2,7 @@ import httpx
 import structlog
 
 from app.core.auth.services.auth_provider import TokenProvider
+from app.core.exceptions import ForbiddenException
 from app.core.interfaces.azure_arm import AzureArmService
 from app.infra.external.azure.clients import AzureArmClient
 
@@ -128,8 +129,8 @@ class AzureArmServiceImpl(AzureArmService):
             resp = await client.get(url, headers=headers)
 
             if resp.status_code == 403:
-                raise Exception(
-                    "You do not have permission to access the Azure subscription. (403 Forbidden)"
+                raise ForbiddenException(
+                    "AZURE_ACCESS_FORBIDDEN|You do not have permission to access the Azure subscription."
                 )
 
             if resp.status_code != 200:
@@ -152,6 +153,6 @@ class AzureArmServiceImpl(AzureArmService):
                     break
 
             if not can_deploy:
-                raise Exception(
-                    "Insufficient permissions for the Azure subscription (Contributor or higher required). Please request role assignment from the subscription owner."
+                raise ForbiddenException(
+                    "INSUFFICIENT_SUB_PERMISSIONS|Insufficient permissions for the Azure subscription (Contributor or higher required)."
                 )
