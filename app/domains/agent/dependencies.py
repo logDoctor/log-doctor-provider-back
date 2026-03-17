@@ -21,6 +21,7 @@ from .usecases import (
     RequestAgentUpdateUseCase,
     TenantAdminUninstallUseCase,
     TenantUserListAgentsUseCase,
+    UpdateAgentUseCase,
 )
 
 
@@ -90,3 +91,21 @@ def get_tenant_admin_uninstall_use_case(
     return TenantAdminUninstallUseCase(
         tenant_repository, agent_repository, azure_arm_service
     )
+
+
+def get_update_agent_use_case(
+    repository: AgentRepository = Depends(get_agent_repository),
+) -> UpdateAgentUseCase:
+    return UpdateAgentUseCase(repository)
+
+from .repository import AgentIssueRepository, AzureAgentIssueRepository
+from .usecases.report_agent_issue import ReportAgentIssueUseCase
+
+async def get_agent_issue_repository() -> AgentIssueRepository:
+    container = await CosmosDB.get_container("agent_issues")
+    return AzureAgentIssueRepository(container)
+
+def get_report_agent_issue_use_case(
+    repository: AgentIssueRepository = Depends(get_agent_issue_repository)
+) -> ReportAgentIssueUseCase:
+    return ReportAgentIssueUseCase(repository)

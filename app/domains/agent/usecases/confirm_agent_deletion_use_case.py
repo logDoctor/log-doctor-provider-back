@@ -26,7 +26,7 @@ class ConfirmAgentDeletionUseCase:
 
         agent.confirm_deletion()
 
-        await self.agent_repository.upsert_agent(agent.to_dict())
+        await self.agent_repository.upsert_agent(agent)
 
         return ConfirmAgentDeletionResponse(
             message=f"Agent {agent_id} has been marked as DELETED.",

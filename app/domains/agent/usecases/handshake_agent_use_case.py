@@ -61,7 +61,7 @@ class HandshakeAgentUseCase:
                 capabilities=request.capabilities,
             )
 
-        result = await self.repository.upsert_agent(agent.to_dict())
+        result = await self.repository.upsert_agent(agent)
         if not result:
             raise InternalServerException("Failed to persist agent handshake")
 

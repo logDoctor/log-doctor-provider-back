@@ -1,4 +1,5 @@
 import structlog
+
 from app.core.auth.models import Identity
 from app.core.exceptions import NotFoundException
 from app.core.interfaces.azure_arm import AzureArmService
@@ -46,7 +47,7 @@ class DeactivateAgentUseCase:
             )
             agent.mark_deactivate_failed()
 
-        await self.agent_repository.upsert_agent(agent.to_dict())
+        await self.agent_repository.upsert_agent(agent)
 
         return DeactivateAgentResponse(
             message=f"Deactivation request for agent {agent_id} is in progress.",

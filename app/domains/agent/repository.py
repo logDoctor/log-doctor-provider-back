@@ -4,7 +4,7 @@ from azure.cosmos.aio import ContainerProxy
 
 from app.infra.db.cosmos import cosmos_repository
 
-from .models import Agent, AgentStatus
+from .models import Agent, AgentIssue, AgentStatus
 
 
 # 1. Interface
@@ -22,7 +22,7 @@ class AgentRepository(ABC):
         pass
 
     @abstractmethod
-    async def upsert_agent(self, item: dict) -> Agent:
+    async def upsert_agent(self, agent: Agent) -> Agent:
         """에이전트 정보를 저장 또는 업데이트합니다."""
         pass
 
@@ -95,8 +95,8 @@ class AzureAgentRepository(AgentRepository):
 
         return results[0]  # Decorator will handle mapping to Agent
 
-    async def upsert_agent(self, item: dict) -> Agent:
-        return await self.container.upsert_item(item)
+    async def upsert_agent(self, agent: Agent) -> Agent:
+        return await self.container.upsert_item(agent.to_dict())
 
     async def get_all_by_tenant_id(self, tenant_id: str) -> list[Agent]:
         query = (
@@ -161,3 +161,22 @@ class AzureAgentRepository(AgentRepository):
         agents = [Agent.from_dict(item) async for item in items]
 
         return agents, total_count
+
+
+# 1. Interface (AgentIssue)
+class AgentIssueRepository(ABC):
+    @abstractmethod
+    async def create_issue(self, issue: AgentIssue) -> AgentIssue:
+        pass
+
+
+# 2. Implementation (Cosmos - AgentIssue)
+@cosmos_repository(map_to=AgentIssue)
+class AzureAgentIssueRepository(AgentIssueRepository):
+    def __init__(self, container: ContainerProxy):
+        self.container = container
+
+    async def create_issue(self, issue: AgentIssue) -> AgentIssue:
+        # CosmosDB 저장
+        await self.container.upsert_item(issue.to_dict())
+        return issue

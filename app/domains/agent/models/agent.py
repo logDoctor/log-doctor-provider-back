@@ -9,16 +9,12 @@ from app.core.exceptions import ConflictException
 class AgentStatus(str, Enum):
     INITIALIZING = "INITIALIZING"
     ACTIVE = "ACTIVE"
+    UPDATING = "UPDATING"
+    UPDATING_FAILED = "UPDATING_FAILED"
     DEACTIVATING = "DEACTIVATING"
     DEACTIVATE_FAILED = "DEACTIVATE_FAILED"
     DELETED = "DELETED"
     UNKNOWN = "UNKNOWN"
-
-
-class AnalysisLevel(str, Enum):
-    L1 = "L1"
-    L2 = "L2"
-    L3 = "L3"
 
 
 @dataclass
@@ -39,7 +35,9 @@ class Agent:
     status: AgentStatus
     analysis_schedule: str
     last_handshake_at: str
+    teams_info: dict | None = None
     deleted_at: str | None = None
+    update_started_at: str | None = None
 
     @staticmethod
     def create(
@@ -98,7 +96,9 @@ class Agent:
             status=AgentStatus(data.get("status", AgentStatus.UNKNOWN)),
             analysis_schedule=data.get("analysis_schedule", "0 0 * * *"),
             last_handshake_at=data["last_handshake_at"],
+            teams_info=data.get("teams_info"),
             deleted_at=data.get("deleted_at"),
+            update_started_at=data.get("update_started_at"),
         )
 
     def to_dict(self) -> dict:
@@ -121,8 +121,12 @@ class Agent:
             "analysis_schedule": self.analysis_schedule,
             "last_handshake_at": self.last_handshake_at,
         }
+        if self.teams_info:
+            result["teams_info"] = self.teams_info
         if self.deleted_at:
             result["deleted_at"] = self.deleted_at
+        if self.update_started_at:
+            result["update_started_at"] = self.update_started_at
         return result
 
     def is_same_version(self, version: str) -> bool:
@@ -139,6 +143,7 @@ class Agent:
         version: str | None = None,
         status: AgentStatus | None = None,
         analysis_schedule: str | None = None,
+        teams_info: dict | None = None,
     ) -> list[str]:
         """필드 정보를 업데이트하고 변경된 필드 목록을 반환합니다."""
         updated_fields = []
@@ -151,11 +156,19 @@ class Agent:
         if analysis_schedule and self.analysis_schedule != analysis_schedule:
             self.analysis_schedule = analysis_schedule
             updated_fields.append("analysis_schedule")
+        if teams_info is not None and self.teams_info != teams_info:
+            self.teams_info = teams_info
+            updated_fields.append("teams_info")
 
         if updated_fields:
             self.last_handshake_at = datetime.now(UTC).isoformat()
 
         return updated_fields
+
+    def start_update(self):
+        """에이전트 업데이트 상태로 전환합니다."""
+        self.status = AgentStatus.UPDATING
+        self.update_started_at = datetime.now(UTC).isoformat()
 
     def deactivate(self):
         """에이전트를 비활성화 상태로 전환합니다. (Azure 리소스 삭제 진행 중)"""
@@ -169,8 +182,9 @@ class Agent:
 
     def activate(self):
         """에이전트 핸드쉐이크가 성공하여 활성 상태로 전환합니다."""
-        if self.status == AgentStatus.INITIALIZING:
+        if self.status in [AgentStatus.INITIALIZING, AgentStatus.UPDATING]:
             self.status = AgentStatus.ACTIVE
+            self.update_started_at = None
 
     def is_active(self) -> bool:
         return self.status == AgentStatus.ACTIVE

@@ -96,7 +96,7 @@ class TenantAdminUninstallUseCase:
                 azure_status = "FAILED"
                 agent.deactivate()  # Even if ARM fails, we deactivate locally
 
-            await self.agent_repository.upsert_agent(agent.to_dict())
+            await self.agent_repository.upsert_agent(agent)
             results.append({"agent_id": agent.agent_id, "azure_status": azure_status})
 
         return TenantAdminUninstallResponse(

@@ -1,3 +1,7 @@
+
+from .dependencies import get_report_agent_issue_use_case
+from .schemas import AgentIssueCreate
+from .usecases.report_agent_issue import ReportAgentIssueUseCase
 from fastapi import Depends, Request
 from fastapi_restful.cbv import cbv
 
@@ -13,6 +17,7 @@ from .dependencies import (
     get_platform_admin_list_agents_use_case,
     get_request_agent_update_use_case,
     get_tenant_user_list_agents_use_case,
+    get_update_agent_use_case,
 )
 from .schemas import (
     CheckAzureResourceGroupStatusResponse,
@@ -24,6 +29,8 @@ from .schemas import (
     RequestAgentUpdateRequest,
     RequestAgentUpdateResponse,
     TenantUserListAgentsResponse,
+    UpdateAgentRequest,
+    UpdateAgentResponse,
 )
 from .usecases import (
     CheckAzureResourceGroupStatusUseCase,
@@ -33,6 +40,7 @@ from .usecases import (
     PlatformAdminListAgentsUseCase,
     RequestAgentUpdateUseCase,
     TenantUserListAgentsUseCase,
+    UpdateAgentUseCase,
 )
 
 router = APIRouter(tags=["Agents"])
@@ -87,6 +95,26 @@ class AgentRouter:
             agent_id=client_agent_id,
         )
 
+    @router.patch("/{client_agent_id}", response_model=UpdateAgentResponse)
+    async def update_agent(
+        self,
+        client_agent_id: str,
+        tenant_id: str,
+        request: UpdateAgentRequest,
+        admin_identity: Identity = Depends(admin_verify_guard),
+        use_case: UpdateAgentUseCase = Depends(get_update_agent_use_case),
+    ):
+        """
+        에이전트 속성을 업데이트합니다. (운영자 전용)
+        """
+        return await use_case.execute(
+            tenant_id=tenant_id,
+            agent_id=client_agent_id,
+            status=request.status,
+            teams_info=request.teams_info,
+        )
+
+
     @router.post(
         "/{client_agent_id}/confirm-deletion",
         response_model=ConfirmAgentDeletionResponse,
@@ -135,7 +163,6 @@ class AgentRouter:
     async def request_update(
         self,
         client_agent_id: str,
-        tenant_id: str,
         request: RequestAgentUpdateRequest,
         admin_identity: Identity = Depends(admin_verify_guard),
         use_case: RequestAgentUpdateUseCase = Depends(
@@ -145,10 +172,11 @@ class AgentRouter:
         """에이전트 패키지 업데이트를 요청합니다. (운영자 전용)"""
         return await use_case.execute(
             identity=admin_identity,
-            tenant_id=tenant_id,
+            tenant_id=request.tenant_id,
             agent_id=client_agent_id,
             target_version=request.target_version,
         )
+
 
     @router.post("/handshake", response_model=HandshakeAgentResponse)
     async def handshake(
@@ -162,3 +190,13 @@ class AgentRouter:
         """
         client_ip = req.client.host if req.client else "unknown"
         return await use_case.execute(request, client_ip)
+
+@router.post("/{agent_id}/issues", status_code=201)
+async def report_agent_issue(
+    agent_id: str,
+    request: AgentIssueCreate,
+    tenant_id: str = "default_tenant", # 임시 헤더/컨텍스트 파싱 처리 유도
+    use_case: ReportAgentIssueUseCase = Depends(get_report_agent_issue_use_case)
+):
+    issue = await use_case.execute(tenant_id=tenant_id, agent_id=agent_id, request=request)
+    return {"message": "Issue reported successfully", "id": issue.id}

@@ -27,6 +27,7 @@ class AgentCommandMessage(BaseModel):
     report_id: str | None = None
     command: str
     params: dict | None = None
+    resource_groups: list[str] | None = None
 
 
 class AgentResponse(BaseModel):
@@ -47,6 +48,21 @@ class AgentResponse(BaseModel):
     status: str
     analysis_schedule: str
     last_handshake_at: str
+    teams_info: dict | None = None
+
+
+class UpdateAgentRequest(BaseModel):
+    """에이전트 속성 업데이트 요청"""
+
+    teams_info: dict | None = None
+    status: str | None = None
+
+
+class UpdateAgentResponse(BaseModel):
+    """에이전트 속성 업데이트 응답"""
+
+    message: str
+    agent: AgentResponse
 
 
 class PaginatedAgentResponse(BaseModel):
@@ -93,6 +109,7 @@ class RequestAgentUpdateResponse(BaseModel):
 
     message: str
     agent: AgentResponse
+    success: bool = True
 
 
 class TenantAdminUninstallResponse(BaseModel):

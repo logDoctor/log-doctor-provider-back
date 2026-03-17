@@ -39,9 +39,7 @@ class RequestAgentUpdateUseCase:
         agent_id: str,
         target_version: str = "latest",
     ) -> RequestAgentUpdateResponse:
-        agent = await self.agent_repository.get_by_id(
-            tenant_id=tenant_id, id=agent_id
-        )
+        agent = await self.agent_repository.get_by_id(tenant_id=tenant_id, id=agent_id)
         if not agent:
             raise NotFoundException(f"Agent {agent_id} not found.")
 
@@ -76,6 +74,9 @@ class RequestAgentUpdateUseCase:
             raise InternalServerException(
                 f"Failed to request agent update: {str(e)}"
             ) from e
+
+        agent.start_update()
+        await self.agent_repository.upsert_agent(agent)
 
         return RequestAgentUpdateResponse(
             message=f"Update request successful. ({agent.version} -> {package.version})",
