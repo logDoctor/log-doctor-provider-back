@@ -1,5 +1,6 @@
 import structlog
 
+from app.core.auth.constants import AppRoleName
 from app.core.auth.models import Identity
 from app.core.auth.services.graph_service import GraphService
 from app.core.exceptions import NotFoundException, UnauthorizedException
@@ -78,7 +79,7 @@ class UpdateTenantUseCase:
                 tenant_entity.add_privileged_account(email, user_id)
 
             admin_id = identity.id
-            privileged_role_id = "84825946-5f5c-437b-96d5-66d499999a03"
+            privileged_role_id = AppRoleName.PRIVILEGED_USER_ID
 
             # 기존/신규 추가된 운영자들 중, 나(Admin)를 제외한 나머지에게 PrivilegedUser 역할 할당
             ids_to_assign = [

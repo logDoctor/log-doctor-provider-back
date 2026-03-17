@@ -37,9 +37,9 @@ async def get_client_template(request: Request, tenant_id: str | None = None):
     # [주의] appName과 resourceGroupName은 사용자가 직접 입력해야 하므로 제거 목록에서 제외합니다.
     for param_to_del in [
         "env",
-        "providerUrl",
+        "publisherUrl",
         "packageUrl",
-        "providerClientId",
+        "publisherClientId",
         "providerPrincipalId",  # 완전히 제거하여 UI 노출을 차단합니다.
         "deploymentId",
     ]:
@@ -66,11 +66,11 @@ async def get_client_template(request: Request, tenant_id: str | None = None):
             inner_params = resource.get("properties", {}).get("parameters", {})
 
             # Provider 백엔드 URL 주입
-            if "providerUrl" in inner_params:
-                inner_params["providerUrl"]["value"] = base_url
+            if "publisherUrl" in inner_params:
+                inner_params["publisherUrl"]["value"] = base_url
             # Provider App Registration Client ID 주입
-            if "providerClientId" in inner_params:
-                inner_params["providerClientId"]["value"] = settings.CLIENT_ID
+            if "publisherClientId" in inner_params:
+                inner_params["publisherClientId"]["value"] = settings.CLIENT_ID
             # Provider Service Principal Object ID를 Variable로 전환하여 UI에서 완전히 숨깁니다.
             if tenant_id:
                 from app.core.auth.dependencies import get_graph_service

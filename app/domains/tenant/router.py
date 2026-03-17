@@ -7,6 +7,8 @@ from app.core.routing import APIRouter
 
 from .dependencies import (
     get_list_channels_use_case,
+    get_list_joined_teams_use_case,
+    get_list_resource_groups_use_case,
     get_register_tenant_use_case,
     get_subscription_setup_info_use_case,
     get_subscriptions_use_case,
@@ -14,6 +16,7 @@ from .dependencies import (
     get_update_tenant_use_case,
 )
 from .schemas import (
+    AzureResourceGroupResponse,
     GetTenantStatusResponse,
     RegisterTenantRequest,
     RegisterTenantResponse,
@@ -27,6 +30,8 @@ from .usecases import (
     GetSubscriptionsUseCase,
     GetTenantStatusUseCase,
     ListChannelsUseCase,
+    ListJoinedTeamsUseCase,
+    ListResourceGroupsUseCase,
     RegisterTenantUseCase,
     UpdateTenantUseCase,
 )
@@ -91,6 +96,17 @@ class TenantRouter:
         """
         return await use_case.execute(identity.tenant_id, team_id)
 
+    @router.get("/me/teams", response_model=list[dict])
+    async def list_available_teams(
+        self,
+        identity: Identity = Depends(get_current_identity),
+        use_case: ListJoinedTeamsUseCase = Depends(get_list_joined_teams_use_case),
+    ):
+        """
+        사용자가 가입한 팀 목록을 조회합니다.
+        """
+        return await use_case.execute(identity.tenant_id)
+
     # --- Subscription 관련 엔드포인트 통합 ---
 
     @router.get("/me/subscriptions", response_model=SubscriptionListResponse)
@@ -126,3 +142,20 @@ class TenantRouter:
 
         base_url = f"{scheme}://{request.url.netloc}"
         return await use_case.execute(subscription_id, base_url, identity)
+
+    @router.get(
+        "/me/subscriptions/{subscription_id}/resource-groups",
+        response_model=list[AzureResourceGroupResponse],
+    )
+    async def list_resource_groups(
+        self,
+        subscription_id: str,
+        identity: Identity = Depends(get_current_identity),
+        use_case: ListResourceGroupsUseCase = Depends(
+            get_list_resource_groups_use_case
+        ),
+    ):
+        """
+        사용자가 접근 가능한 특정 Azure 구독의 리소스 그룹 목록을 조회합니다.
+        """
+        return await use_case.execute(identity, subscription_id)

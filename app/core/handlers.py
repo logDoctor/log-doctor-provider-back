@@ -55,8 +55,11 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     """
     처리되지 않은 예외를 처리하고 500 내부 서버 오류를 반환합니다.
     """
-    # 실제 환경에서는 여기서 예외 스택 트레이스를 로깅합니다.
-    print(f"Unhandled exception: {exc}")
+    logger.exception(
+        "Unhandled exception occurred",
+        path=request.url.path,
+        error=str(exc),
+    )
     return JSONResponse(
         status_code=500,
         content={

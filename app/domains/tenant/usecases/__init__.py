@@ -2,6 +2,8 @@ from .get_subscription_setup_info_use_case import GetSubscriptionSetupInfoUseCas
 from .get_subscriptions_use_case import GetSubscriptionsUseCase
 from .get_tenant_status_use_case import GetTenantStatusUseCase
 from .list_channels_use_case import ListChannelsUseCase
+from .list_joined_teams_use_case import ListJoinedTeamsUseCase
+from .list_resource_groups_use_case import ListResourceGroupsUseCase
 from .register_tenant_use_case import RegisterTenantUseCase
 from .update_tenant_use_case import UpdateTenantUseCase
 
@@ -12,4 +14,6 @@ __all__ = [
     "GetSubscriptionsUseCase",
     "GetSubscriptionSetupInfoUseCase",
     "ListChannelsUseCase",
+    "ListJoinedTeamsUseCase",
+    "ListResourceGroupsUseCase",
 ]

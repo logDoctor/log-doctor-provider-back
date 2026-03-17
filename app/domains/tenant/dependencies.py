@@ -1,3 +1,5 @@
+from fastapi import Depends
+
 from app.core.auth.dependencies import get_graph_service, get_token_provider
 from app.core.auth.services.auth_provider import TokenProvider
 from app.core.auth.services.graph_service import GraphService
@@ -9,7 +11,6 @@ from app.infra.external.azure.dependencies import (
     get_azure_arm_client,
     get_azure_arm_service,
 )
-from fastapi import Depends
 
 from .repositories import (
     AzureSubscriptionRepository,
@@ -22,6 +23,8 @@ from .usecases import (
     GetSubscriptionsUseCase,
     GetTenantStatusUseCase,
     ListChannelsUseCase,
+    ListJoinedTeamsUseCase,
+    ListResourceGroupsUseCase,
     RegisterTenantUseCase,
     UpdateTenantUseCase,
 )
@@ -85,4 +88,15 @@ def get_list_channels_use_case(
 ) -> ListChannelsUseCase:
     """Returns a ListChannelsUseCase instance with injected dependencies."""
     return ListChannelsUseCase(graph_service)
-    return ListChannelsUseCase(graph_service)
+
+
+def get_list_resource_groups_use_case(
+    azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
+) -> ListResourceGroupsUseCase:
+    """Returns a ListResourceGroupsUseCase instance."""
+    return ListResourceGroupsUseCase(azure_arm_service)
+
+def get_list_joined_teams_use_case(
+    graph_service: GraphService = Depends(get_graph_service),
+) -> ListJoinedTeamsUseCase:
+    return ListJoinedTeamsUseCase(graph_service)

@@ -31,6 +31,13 @@ class AzureArmService(ABC):
         pass
 
     @abstractmethod
+    async def list_resource_groups(
+        self, access_token: str, subscription_id: str
+    ) -> list[dict]:
+        """조회 가능한 리소스 그룹 명단을 반환합니다."""
+        pass
+
+    @abstractmethod
     async def check_deployment_permission(
         self, sso_token: str, subscription_id: str
     ) -> None:

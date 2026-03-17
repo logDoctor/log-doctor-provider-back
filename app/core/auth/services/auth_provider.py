@@ -129,8 +129,9 @@ class EntraIDTokenProvider(TokenProvider):
 
     async def get_bot_token(self) -> str:
         """Teams Bot Framework용 전용 토큰을 획득합니다."""
-        # 봇 토큰은 테넌트에 종속되지 않은 전용 엔드포인트를 사용합니다.
-        authority = "https://login.microsoftonline.com/botframework.com"
+        # Azure Bot 리소스가 Single-Tenant 유형이므로 홈 테넌트 Authority 인증이 필요합니다.
+        tid = getattr(settings, "TENANT_ID", "common")
+        authority = f"https://login.microsoftonline.com/{tid}"
         scopes = ["https://api.botframework.com/.default"]
 
         app = msal.ConfidentialClientApplication(

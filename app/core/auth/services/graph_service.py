@@ -246,6 +246,51 @@ class GraphService:
             )
             return False
 
+    async def list_joined_teams(self, tenant_id: str) -> list[dict]:
+        """사용자가 속한 테넌트의 모든 팀 목록을 조회합니다."""
+        # Azure AD 관리자 승인 권한 전파 속도 지연을 고려한 재시도 배포
+        for attempt in range(3):
+            try:
+                token = await self._get_app_only_token(tenant_id)
+                headers = {"Authorization": f"Bearer {token}"}
+
+                async with httpx.AsyncClient(headers=headers, timeout=10.0) as client:
+                    res1 = await client.get(f"{self.base_url}/teams")
+                    if res1.status_code == 200:
+                        return [
+                            {"id": t.get("id"), "name": t.get("displayName") or "Unknown"}
+                            for t in res1.json().get("value", [])
+                        ]
+
+                    res2 = await client.get(
+                        f"{self.base_url}/groups?$filter=resourceProvisioningOptions/Any(x:x eq 'Team')"
+                    )
+                    if res2.status_code == 200:
+                        return [
+                            {"id": g.get("id"), "name": g.get("displayName") or "Unknown"}
+                            for g in res2.json().get("value", [])
+                        ]
+
+                logger.warning(
+                    "Teams list attempt failed",
+                    attempt=attempt + 1,
+                    code1=res1.status_code,
+                    code2=res2.status_code,
+                )
+            except Exception as e:
+                logger.warning("Exception during teams search", attempt=attempt + 1, error=str(e))
+
+            if attempt < 2:  # 마지막 시도가 아니라면 대기
+                await asyncio.sleep(2)
+
+        logger.error(
+            "All attempts to list teams failed due to insufficient permissions or delay.",
+            tenant_id=tenant_id,
+        )
+        raise UnauthorizedException(
+            "CONSENT_PROPAGATING|Azure AD permissions are propagating. Please refresh in a few seconds."
+        )
+
     async def _get_app_only_token(self, tenant_id: str) -> str:
         """TokenProvider를 통해 Graph용 앱 전용 토큰을 획득합니다."""
         return await self.token_provider.get_app_token(

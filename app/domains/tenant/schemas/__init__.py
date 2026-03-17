@@ -1,3 +1,4 @@
+from .resource_group_schemas import AzureResourceGroupResponse
 from .subscription_schemas import (
     SubscriptionItem,
     SubscriptionListResponse,
@@ -26,4 +27,5 @@ __all__ = [
     "SubscriptionItem",
     "SubscriptionListResponse",
     "SubscriptionSetupResponse",
+    "AzureResourceGroupResponse",
 ]
