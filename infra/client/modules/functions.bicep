@@ -2,11 +2,11 @@ param location string
 param functionAppName string
 param storageAccountName string
 param appServicePlanName string
-param providerUrl string
+param publisherUrl string  // 변경
 param tenantId string
 param subscriptionId string
 param packageUrl string = ''
-param providerClientId string = ''
+param publisherClientId string = '' // 변경
 param providerPrincipalId string = ''
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
@@ -29,7 +29,7 @@ resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2023-01-0
 
 resource analysisRequestsQueue 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-01-01' = {
   parent: queueService
-  name: 'analysis-requests'
+  name: 'diagnosis-requests'
 }
 
 
@@ -102,8 +102,8 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           value: 'python'
         }
         {
-          name: 'PROVIDER_URL'
-          value: providerUrl
+          name: 'PUBLISHER_URL'
+          value: publisherUrl
         }
         {
           name: 'TENANT_ID'
@@ -114,8 +114,8 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           value: subscriptionId
         }
         {
-          name: 'PROVIDER_CLIENT_ID'
-          value: providerClientId
+          name: 'PUBLISHER_CLIENT_ID'
+          value: publisherClientId
         }
         {
           name: 'RESOURCE_GROUP_NAME'

@@ -9,13 +9,13 @@ param resourceGroupName string = 'rg-logdoctor'
 var env = 'prod'
 
 @metadata({ hidden: true })
-param providerUrl string = ''
+param publisherUrl string = ''
 
 @metadata({ hidden: true })
 param packageUrl string = ''
 
 @metadata({ hidden: true })
-param providerClientId string = ''
+param publisherClientId string = ''
 
 @metadata({ hidden: true })
 param providerPrincipalId string = ''
@@ -45,11 +45,11 @@ module functions 'modules/functions.bicep' = {
     functionAppName: functionAppName
     storageAccountName: storageAccountName
     appServicePlanName: appServicePlanName
-    providerUrl: providerUrl
+    publisherUrl: publisherUrl
     tenantId: subscription().tenantId
     subscriptionId: subscription().subscriptionId
     packageUrl: packageUrl
-    providerClientId: providerClientId
+    publisherClientId: publisherClientId
     providerPrincipalId: providerPrincipalId
   }
 }

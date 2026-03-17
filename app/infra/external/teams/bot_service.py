@@ -87,6 +87,24 @@ class TeamsBotService:
         }
 
         async with httpx.AsyncClient(headers=headers) as client:
-            res = await client.post(url, json=payload)
-            return res.status_code in [200, 201, 202]
+            try:
+                res = await client.post(url, json=payload)
+                if res.status_code in [200, 201, 202]:
+                    logger.info(
+                        "Teams adaptive card sent successfully",
+                        channel_id=channel_id,
+                        status=res.status_code,
+                    )
+                    return True
+
+                logger.error(
+                    "Failed to send teams adaptive card",
+                    channel_id=channel_id,
+                    code=res.status_code,
+                    text=res.text,
+                )
+                return False
+            except Exception as e:
+                logger.error("Teams adaptive card service error", error=str(e))
+                return False
 

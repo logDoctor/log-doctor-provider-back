@@ -2,7 +2,7 @@ import httpx
 import structlog
 
 from app.core.auth.services.auth_provider import TokenProvider
-from app.core.exceptions import ForbiddenException
+from app.core.exceptions import ForbiddenException, InternalServerException
 from app.core.interfaces.azure_arm import AzureArmService
 from app.infra.external.azure.clients import AzureArmClient
 
@@ -156,3 +156,40 @@ class AzureArmServiceImpl(AzureArmService):
                 raise ForbiddenException(
                     "INSUFFICIENT_SUB_PERMISSIONS|Insufficient permissions for the Azure subscription (Contributor or higher required)."
                 )
+
+    async def list_resource_groups(
+        self, access_token: str, subscription_id: str
+    ) -> list[dict]:
+        access_token = await self.token_provider.get_obo_token(access_token)
+
+        url = (
+            f"https://management.azure.com"
+            f"/subscriptions/{subscription_id}"
+            f"/resourcegroups"
+            f"?api-version={self.api_version}"
+        )
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, headers=headers)
+
+            if response.status_code != 200:
+                self.logger.error(
+                    "azure_list_rgs_failed",
+                    status=response.status_code,
+                    body=response.text,
+                )
+                raise InternalServerException(
+                    f"Failed to list resource groups: {response.status_code}"
+                )
+
+            data = response.json()
+            return [
+                {
+                    "id": rg.get("id"),
+                    "name": rg.get("name"),
+                    "location": rg.get("location")
+                }
+                for rg in data.get("value", [])
+                if rg.get("name")
+            ]
