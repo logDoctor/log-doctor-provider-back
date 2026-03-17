@@ -1,7 +1,7 @@
 from fastapi import Depends, File, UploadFile
 from fastapi_restful.cbv import cbv
 
-from app.core.auth.guards import admin_verify_guard
+from app.core.auth.guards import admin_verify_guard, get_current_identity
 from app.core.auth.guards.download_guard import check_download_token
 from app.core.routing import APIRouter
 
@@ -56,7 +56,7 @@ class PackageAdminRouter:
     @router.get(
         "/",
         response_model=GetPackageResponse | ListPackagesResponse,
-        dependencies=[Depends(admin_verify_guard)],
+        dependencies=[Depends(get_current_identity)],
     )
     async def list_packages(
         self,

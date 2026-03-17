@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 
-from app.infra.db.cosmos import cosmos_repository
 from azure.cosmos.aio import ContainerProxy
+
+from app.infra.db.cosmos import cosmos_repository
 
 from .models import Notification
 
@@ -30,6 +31,6 @@ class AzureNotificationRepository(NotificationRepository):
         query = "SELECT * FROM c WHERE c.tenant_id = @tenant_id"
         parameters = [{"name": "@tenant_id", "value": tenant_id}]
         items = self.container.query_items(
-            query=query, parameters=parameters, enable_cross_partition_query=False
+            query=query, parameters=parameters
         )
         return [item async for item in items]

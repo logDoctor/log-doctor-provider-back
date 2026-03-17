@@ -1,4 +1,3 @@
-from ..models import PackageInfo
 from ..repository import AgentPackageRepository
 from ..schemas import ListPackagesResponse
 
