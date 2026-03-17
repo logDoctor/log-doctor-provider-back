@@ -1,8 +1,13 @@
 from pydantic import BaseModel, ConfigDict
 
-from app.domains.agent.models import AnalysisLevel
-
 from .models import ReportStatus
+
+
+class ResourceGroupItem(BaseModel):
+    """리소스 그룹 식별자 스펙 (ID와 Name 동반)"""
+
+    id: str
+    name: str
 
 
 class DiagnosisSchema(BaseModel):
@@ -13,11 +18,13 @@ class DiagnosisSchema(BaseModel):
     id: str | None = None
     report_id: str
     tenant_id: str
-    rule_id: str
+    rule_code: str
+
     status: str  # DETECTED | HEALTHY
     description: str
     resource_id: str
     remediation: str
+    resource_group: ResourceGroupItem
     is_resolved: bool = False
     created_at: str | None = None
     updated_at: str | None = None
@@ -32,21 +39,28 @@ class ReportSchema(BaseModel):
     trace_id: str
     status: ReportStatus
     triggered_by: str
-    level: AnalysisLevel
     is_initial: bool
     request_params: dict | None = None
-    result: dict | None = None
+
+    summary: dict | None = None
     diagnoses: list[DiagnosisSchema] | None = None
     error: str | None = None
     created_at: str
     updated_at: str
 
 
+class DiagnosticRuleConfiguration(BaseModel):
+    """진단 규칙 실행 단위를 지정하는 스펙"""
+
+    rules: list[str]
+    resource_groups: list[ResourceGroupItem] | None = None
+
+
 class CreateReportRequest(BaseModel):
     agent_id: str
-    level: AnalysisLevel = AnalysisLevel.L1
     start_time: str | None = None
     end_time: str | None = None
+    configurations: list[DiagnosticRuleConfiguration]
 
 
 class CreateReportResponse(BaseModel):
@@ -63,6 +77,7 @@ class AddDiagnosesRequest(BaseModel):
 class ReportUpdateSchema(BaseModel):
     """리포트 정보 업데이트 스키마 (PATCH 용)"""
 
+    tenant_id: str  # 명시적 전달 필수화
     status: ReportStatus | None = None
     error: str | None = None
 

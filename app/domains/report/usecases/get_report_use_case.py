@@ -31,13 +31,7 @@ class GetReportUseCase:
         if wait_for_completion and report.is_analyzing:
             report = await self._wait_for_report_completion(identity, report_id, report)
 
-        # 진단 상세 항목 조회
-        diagnoses = await self.diagnosis_repository.list_by_report(
-            identity.tenant_id, report_id
-        )
-
         schema = ReportSchema.model_validate(report)
-        schema.diagnoses = [DiagnosisSchema.model_validate(d) for d in diagnoses]
 
         return schema
 

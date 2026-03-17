@@ -3,8 +3,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
 
-from app.domains.agent.models import AnalysisLevel
-
 
 class ReportStatus(str, Enum):
     """리포트 분석 상태"""
@@ -24,13 +22,14 @@ class Report:
     trace_id: str
     status: ReportStatus
     triggered_by: str
-    level: AnalysisLevel
     is_initial: bool = False
     request_params: dict | None = None  # 분석 요청 시 입력된 파라미터 컨텍스트
-    result: dict | None = None  # 분석 완료 후 생성된 결과 데이터
+
+    summary: dict | None = None  # 분석 완료 및 요약 통계 데이터
     error: str | None = None
     created_at: str = ""
     updated_at: str = ""
+    _etag: str | None = None  # 낙관적 락(OCC)용 ETag
 
     @property
     def is_analyzing(self) -> bool:
@@ -43,10 +42,10 @@ class Report:
         agent_id: str,
         trace_id: str,
         triggered_by: str,
-        level: AnalysisLevel,
         is_initial: bool = False,
         request_params: dict | None = None,
     ) -> "Report":
+
         now = datetime.now(UTC).isoformat()
         return Report(
             id=str(uuid.uuid4()),
@@ -55,7 +54,6 @@ class Report:
             trace_id=trace_id,
             status=ReportStatus.ANALYZING,
             triggered_by=triggered_by,
-            level=level,
             is_initial=is_initial,
             request_params=request_params,
             created_at=now,
@@ -68,14 +66,14 @@ class Report:
         self.error = error_message
         self.updated_at = datetime.now(UTC).isoformat()
 
-    def complete_analysis(self, result: dict, error: str | None = None):
+    def complete_analysis(self, summary: dict, error: str | None = None):
         """분석 완료 결과를 리포트에 반영합니다."""
         if error:
             self.status = ReportStatus.FAILED
             self.error = error
         else:
             self.status = ReportStatus.COMPLETED
-            self.result = result
+            self.summary = summary
 
         self.updated_at = datetime.now(UTC).isoformat()
 
@@ -83,6 +81,7 @@ class Report:
         self,
         status: ReportStatus | None = None,
         error: str | None = None,
+        summary: dict | None = None,
     ) -> list[str]:
         """리포트 정보를 부분 업데이트하고 변경된 필드 목록을 반환합니다."""
         updated_fields = []
@@ -92,6 +91,16 @@ class Report:
         if error is not None and self.error != error:
             self.error = error
             updated_fields.append("error")
+        if summary is not None:
+            if self.summary is None or not isinstance(self.summary, dict):
+                self.summary = {}
+            changed = False
+            for k, v in summary.items():
+                if self.summary.get(k) != v:
+                    self.summary[k] = v
+                    changed = True
+            if changed:
+                updated_fields.append("summary")
 
         if updated_fields:
             self.updated_at = datetime.now(UTC).isoformat()
@@ -107,13 +116,13 @@ class Report:
             trace_id=data["trace_id"],
             status=ReportStatus(data["status"]),
             triggered_by=data.get("triggered_by", "system"),
-            level=AnalysisLevel(data.get("level", AnalysisLevel.L1)),
             is_initial=data.get("is_initial", False),
             request_params=data.get("request_params"),
-            result=data.get("result"),
+            summary=data.get("summary"),
             error=data.get("error"),
             created_at=data["created_at"],
             updated_at=data["updated_at"],
+            _etag=data.get("_etag"),
         )
 
     def to_dict(self) -> dict:
@@ -124,10 +133,9 @@ class Report:
             "trace_id": self.trace_id,
             "status": self.status.value,
             "triggered_by": self.triggered_by,
-            "level": self.level.value if hasattr(self.level, "value") else self.level,
             "is_initial": self.is_initial,
             "request_params": self.request_params,
-            "result": self.result,
+            "summary": self.summary,
             "error": self.error,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -141,11 +149,13 @@ class Diagnosis:
     id: str
     report_id: str
     tenant_id: str
-    rule_id: str
+    rule_code: str
     status: str  # DETECTED | HEALTHY
+
     description: str
     resource_id: str
     remediation: str
+    resource_group: dict
     is_resolved: bool = False
     created_at: str = ""
     updated_at: str = ""
@@ -154,11 +164,12 @@ class Diagnosis:
     def create(
         report_id: str,
         tenant_id: str,
-        rule_id: str,
+        rule_code: str,
         status: str,
         description: str,
         resource_id: str,
         remediation: str,
+        resource_group: str | None = None,
         is_resolved: bool = False,
     ) -> "Diagnosis":
         now = datetime.now(UTC).isoformat()
@@ -166,11 +177,12 @@ class Diagnosis:
             id=str(uuid.uuid4()),
             report_id=report_id,
             tenant_id=tenant_id,
-            rule_id=rule_id,
+            rule_code=rule_code,
             status=status,
             description=description,
             resource_id=resource_id,
             remediation=remediation,
+            resource_group=resource_group,
             is_resolved=is_resolved,
             created_at=now,
             updated_at=now,
@@ -182,11 +194,12 @@ class Diagnosis:
             id=data["id"],
             report_id=data["report_id"],
             tenant_id=data["tenant_id"],
-            rule_id=data["rule_id"],
+            rule_code=data["rule_code"],
             status=data["status"],
             description=data["description"],
             resource_id=data["resource_id"],
             remediation=data["remediation"],
+            resource_group=data.get("resource_group"),
             is_resolved=data.get("is_resolved", False),
             created_at=data["created_at"],
             updated_at=data.get("updated_at", data["created_at"]),
@@ -197,11 +210,12 @@ class Diagnosis:
             "id": self.id,
             "report_id": self.report_id,
             "tenant_id": self.tenant_id,
-            "rule_id": self.rule_id,
+            "rule_code": self.rule_code,
             "status": self.status,
             "description": self.description,
             "resource_id": self.resource_id,
             "remediation": self.remediation,
+            "resource_group": self.resource_group,
             "is_resolved": self.is_resolved,
             "created_at": self.created_at,
             "updated_at": self.updated_at,

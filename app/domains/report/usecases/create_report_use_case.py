@@ -2,14 +2,15 @@ import uuid
 
 from app.core.auth import Identity
 from app.core.exceptions import (
+    BadRequestException,
     ForbiddenException,
     InternalServerException,
     NotFoundException,
 )
+from app.core.interfaces.azure_arm import AzureArmService
 from app.core.interfaces.azure_queue import AzureQueueService
 from app.core.logging import get_logger
 from app.domains.agent.constants import AGENT_COMMAND_QUEUE_NAME, COMMAND_RUN_ANALYSIS
-from app.domains.agent.models import AnalysisLevel
 from app.domains.agent.repository import AgentRepository
 from app.domains.agent.schemas import AgentCommandMessage
 
@@ -26,11 +27,12 @@ class CreateReportUseCase:
         report_repository: ReportRepository,
         agent_repository: AgentRepository,
         azure_queue_service: AzureQueueService,
+        azure_arm_service: AzureArmService,
     ):
         self.report_repository = report_repository
         self.agent_repository = agent_repository
         self.azure_queue_service = azure_queue_service
-        # self.report_domain_service는 제거됨
+        self.azure_arm_service = azure_arm_service
 
     async def execute(
         self,
@@ -53,25 +55,41 @@ class CreateReportUseCase:
         if not storage_account_name:
             raise InternalServerException("Agent storage configuration is missing.")
 
+        # 0. 리소스 그룹 사전 검증 (configurations 내 모든 RGs 수집)
+        request_rgs = []
+        for config in request.configurations:
+            if config.resource_groups:
+                request_rgs.extend(config.resource_groups)
+
+        if request_rgs:
+            valid_rgs = await self.azure_arm_service.list_resource_groups(
+                access_token=identity.sso_token, subscription_id=agent.subscription_id
+            )
+            valid_ids = {rg["id"] for rg in valid_rgs}
+            for rg_item in request_rgs:
+                if rg_item.id not in valid_ids:
+                    raise BadRequestException(
+                        f"Invalid resource group ID: {rg_item.id}"
+                    )
+
         trace_id = str(uuid.uuid4())
         params = self._generate_request_params(request)
 
-        # 초진 여부 자동 판별 (Repository.get_initial 활용)
         existing_initial = await self.report_repository.get_initial(
             tenant_id=identity.tenant_id,
             agent_id=request.agent_id,
         )
         is_initial = self._should_be_initial(existing_initial)
-        
-        # 초진(Initial)은 항상 L3 레벨로 고정
-        level = AnalysisLevel.L3 if is_initial else request.level
+
+        # 수신받은 configurations 명세를 그대로 스냅샷화 (Pydantic -> dict)
+        configurations = [c.model_dump() for c in request.configurations]
+        params["configurations"] = configurations
 
         report = Report.create(
             tenant_id=identity.tenant_id,
             agent_id=request.agent_id,
             trace_id=trace_id,
             triggered_by=identity.email or identity.id or "unknown",
-            level=level,
             is_initial=is_initial,
             request_params=params,
         )
@@ -79,7 +97,7 @@ class CreateReportUseCase:
         queue_message = AgentCommandMessage(
             agent_id=request.agent_id,
             command=COMMAND_RUN_ANALYSIS,
-            params={**params, "level": level},
+            params={**params, "configurations": configurations},
             trace_id=trace_id,
             report_id=report.id,
         )
@@ -122,13 +140,12 @@ class CreateReportUseCase:
             request_params["start_time"] = request.start_time
         if request.end_time:
             request_params["end_time"] = request.end_time
-
         return request_params
 
     def _should_be_initial(self, existing_initial: Report | None) -> bool:
         """기존 초진 리포트 유무 및 상태를 기반으로 새 리포트의 초진 여부를 결정합니다."""
         if not existing_initial:
             return True
-        
+
         # 이미 존재하지만 FAILED인 경우에만 다시 초진 가능
         return existing_initial.status == ReportStatus.FAILED
