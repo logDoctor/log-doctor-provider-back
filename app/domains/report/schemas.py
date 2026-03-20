@@ -18,12 +18,12 @@ class DiagnosisSchema(BaseModel):
     id: str | None = None
     report_id: str
     tenant_id: str
-    rule_code: str
+    inspection_code: str
 
     status: str  # DETECTED | HEALTHY
     description: str
     resource_id: str
-    remediation: str
+    prescriptions: list[str]
     resource_group: ResourceGroupItem
     is_resolved: bool = False
     created_at: str | None = None
@@ -52,7 +52,7 @@ class ReportSchema(BaseModel):
 class DiagnosticRuleConfiguration(BaseModel):
     """진단 규칙 실행 단위를 지정하는 스펙"""
 
-    rules: list[str]
+    inspection_codes: list[str]
     resource_groups: list[ResourceGroupItem] | None = None
 
 
