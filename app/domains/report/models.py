@@ -149,12 +149,12 @@ class Diagnosis:
     id: str
     report_id: str
     tenant_id: str
-    rule_code: str
+    inspection_code: str
     status: str  # DETECTED | HEALTHY
 
     description: str
     resource_id: str
-    remediation: str
+    prescriptions: list[str]
     resource_group: dict
     is_resolved: bool = False
     created_at: str = ""
@@ -164,11 +164,11 @@ class Diagnosis:
     def create(
         report_id: str,
         tenant_id: str,
-        rule_code: str,
+        inspection_code: str,
         status: str,
         description: str,
         resource_id: str,
-        remediation: str,
+        prescriptions: list[str],
         resource_group: str | None = None,
         is_resolved: bool = False,
     ) -> "Diagnosis":
@@ -177,11 +177,11 @@ class Diagnosis:
             id=str(uuid.uuid4()),
             report_id=report_id,
             tenant_id=tenant_id,
-            rule_code=rule_code,
+            inspection_code=inspection_code,
             status=status,
             description=description,
             resource_id=resource_id,
-            remediation=remediation,
+            prescriptions=prescriptions,
             resource_group=resource_group,
             is_resolved=is_resolved,
             created_at=now,
@@ -194,11 +194,11 @@ class Diagnosis:
             id=data["id"],
             report_id=data["report_id"],
             tenant_id=data["tenant_id"],
-            rule_code=data["rule_code"],
+            inspection_code=data.get("inspection_code", data.get("rule_code")),
             status=data["status"],
             description=data["description"],
             resource_id=data["resource_id"],
-            remediation=data["remediation"],
+            prescriptions=data.get("prescriptions", []),
             resource_group=data.get("resource_group"),
             is_resolved=data.get("is_resolved", False),
             created_at=data["created_at"],
@@ -210,11 +210,11 @@ class Diagnosis:
             "id": self.id,
             "report_id": self.report_id,
             "tenant_id": self.tenant_id,
-            "rule_code": self.rule_code,
+            "inspection_code": self.inspection_code,
             "status": self.status,
             "description": self.description,
             "resource_id": self.resource_id,
-            "remediation": self.remediation,
+            "prescriptions": self.prescriptions,
             "resource_group": self.resource_group,
             "is_resolved": self.is_resolved,
             "created_at": self.created_at,
