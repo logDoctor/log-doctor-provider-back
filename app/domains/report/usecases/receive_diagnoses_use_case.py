@@ -16,11 +16,11 @@ class ReceiveDiagnosesUseCase:
             Diagnosis.create(
                 report_id=report_id,
                 tenant_id=tenant_id,
-                rule_code=item.rule_code,
+                inspection_code=item.inspection_code,
                 status=item.status,
                 description=item.description,
                 resource_id=item.resource_id,
-                remediation=item.remediation,
+                prescriptions=item.prescriptions,
                 resource_group=item.resource_group.model_dump(),
             )
             for item in request.items
