@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import UTC, datetime
 from urllib.parse import quote
 
@@ -22,7 +23,8 @@ class GetSubscriptionSetupInfoUseCase:
     async def execute(
         self, subscription_id: str, base_url: str, identity: Identity
     ) -> SubscriptionSetupResponse:
-        bicep_url = f"{base_url}/api/v1/templates/client-setup.json?tenant_id={identity.tenant_id}"
+        # 🔗 Azure Portal 캐싱 방지를 위해 버전을 타임스탬프로 붙여서 고유화합니다.
+        bicep_url = f"{base_url}/api/v1/templates/client-setup.json?tenant_id={identity.tenant_id}&v={int(time.time())}"
 
         # package_url은 이제 템플릿 엔드포인트(template.py)에서 직접 주입하므로 여기서 계산할 필요가 없습니다.
 
