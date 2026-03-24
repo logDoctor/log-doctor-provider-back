@@ -9,6 +9,7 @@ from .dependencies import (
     get_list_channels_use_case,
     get_list_joined_teams_use_case,
     get_list_resource_groups_use_case,
+    get_list_subscription_administrators_use_case,
     get_register_tenant_use_case,
     get_subscription_setup_info_use_case,
     get_subscriptions_use_case,
@@ -34,6 +35,9 @@ from .usecases import (
     ListResourceGroupsUseCase,
     RegisterTenantUseCase,
     UpdateTenantUseCase,
+)
+from .usecases.list_subscription_administrators_use_case import (
+    ListSubscriptionAdministratorsUseCase,
 )
 
 router = APIRouter(tags=["Tenant"])
@@ -157,5 +161,23 @@ class TenantRouter:
     ):
         """
         사용자가 접근 가능한 특정 Azure 구독의 리소스 그룹 목록을 조회합니다.
+        """
+        return await use_case.execute(identity, subscription_id)
+
+    @router.get(
+        "/me/subscriptions/{subscription_id}/administrators",
+        response_model=list[dict],
+    )
+    async def list_subscription_administrators(
+        self,
+        subscription_id: str,
+        identity: Identity = Depends(get_current_identity),
+        use_case: ListSubscriptionAdministratorsUseCase = Depends(
+            get_list_subscription_administrators_use_case
+        ),
+    ):
+        """
+        사용자가 고른 Azure 구독의 권한자(Owner/Contributor) 중
+        앱의 지정 위임자(privileged_accounts)와 교집합인 인원만 리스트업합니다.
         """
         return await use_case.execute(identity, subscription_id)

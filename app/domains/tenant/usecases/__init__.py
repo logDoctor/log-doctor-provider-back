@@ -4,6 +4,9 @@ from .get_tenant_status_use_case import GetTenantStatusUseCase
 from .list_channels_use_case import ListChannelsUseCase
 from .list_joined_teams_use_case import ListJoinedTeamsUseCase
 from .list_resource_groups_use_case import ListResourceGroupsUseCase
+from .list_subscription_administrators_use_case import (
+    ListSubscriptionAdministratorsUseCase,
+)
 from .register_tenant_use_case import RegisterTenantUseCase
 from .update_tenant_use_case import UpdateTenantUseCase
 
@@ -16,4 +19,5 @@ __all__ = [
     "ListChannelsUseCase",
     "ListJoinedTeamsUseCase",
     "ListResourceGroupsUseCase",
+    "ListSubscriptionAdministratorsUseCase",
 ]

@@ -25,6 +25,7 @@ from .usecases import (
     ListChannelsUseCase,
     ListJoinedTeamsUseCase,
     ListResourceGroupsUseCase,
+    ListSubscriptionAdministratorsUseCase,
     RegisterTenantUseCase,
     UpdateTenantUseCase,
 )
@@ -96,7 +97,18 @@ def get_list_resource_groups_use_case(
     """Returns a ListResourceGroupsUseCase instance."""
     return ListResourceGroupsUseCase(azure_arm_service)
 
+
 def get_list_joined_teams_use_case(
     graph_service: GraphService = Depends(get_graph_service),
 ) -> ListJoinedTeamsUseCase:
     return ListJoinedTeamsUseCase(graph_service)
+
+
+def get_list_subscription_administrators_use_case(
+    tenant_repository: TenantRepository = Depends(get_tenant_repository),
+    graph_service: GraphService = Depends(get_graph_service),
+    azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
+) -> ListSubscriptionAdministratorsUseCase:
+    return ListSubscriptionAdministratorsUseCase(
+        tenant_repository, graph_service, azure_arm_service
+    )
