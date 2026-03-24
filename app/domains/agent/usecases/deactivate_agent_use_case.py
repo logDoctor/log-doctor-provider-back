@@ -35,6 +35,36 @@ class DeactivateAgentUseCase:
 
         agent.deactivate()
 
+        # 🚀 [ROLE CLEANUP] Resource Group 삭제 전에 Function App의 Managed Identity를 조회해 역할 할당 해제
+        try:
+            principal_id = await self.azure_arm_service.get_function_app_principal_id(
+                access_token=identity.sso_token,
+                subscription_id=agent.subscription_id,
+                resource_group_name=agent.resource_group_name,
+                function_app_name=agent.function_app_name
+            )
+            
+            if principal_id:
+                logger.info("Found Function App principal ID for role deletion", principal_id=principal_id)
+                assignments = await self.azure_arm_service.list_role_assignments(
+                    access_token=identity.sso_token,
+                    subscription_id=agent.subscription_id
+                )
+                
+                # 해당 principal_id 에 부여된 역할 할당만 골라 삭제
+                for assignment in assignments:
+                    props = assignment.get("properties", {})
+                    if props.get("principalId") == principal_id:
+                        assignment_id = assignment.get("id")
+                        logger.info("Deleting subscription-level role assignment", role_assignment_id=assignment_id)
+                        await self.azure_arm_service.delete_role_assignment(
+                            access_token=identity.sso_token,
+                            role_assignment_id=assignment_id
+                        )
+        except Exception as e:
+            # 역할 삭제에 실패하더라도 리소스 그룹 삭제 등 메인 해제 흐름은 유지합니다.
+            logger.warn("Failed to clean up role assignments for agent", agent_id=agent_id, error=str(e))
+
         try:
             await self.azure_arm_service.delete_resource_group(
                 access_token=identity.sso_token,

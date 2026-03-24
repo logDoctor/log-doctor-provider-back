@@ -5,3 +5,5 @@ class AgentIssueCreate(BaseModel):
     issue_type: str
     message: str
     raw_data: str | None = None
+class AgentIssuesCreate(BaseModel):
+    items: list[AgentIssueCreate]

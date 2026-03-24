@@ -1,6 +1,6 @@
 
 from .dependencies import get_report_agent_issue_use_case
-from .schemas import AgentIssueCreate
+from .schemas import AgentIssueCreate, AgentIssuesCreate
 from .usecases.report_agent_issue import ReportAgentIssueUseCase
 from fastapi import Depends, Request
 from fastapi_restful.cbv import cbv
@@ -194,9 +194,13 @@ class AgentRouter:
 @router.post("/{agent_id}/issues", status_code=201)
 async def report_agent_issue(
     agent_id: str,
-    request: AgentIssueCreate,
+    request: AgentIssuesCreate,
     tenant_id: str = "default_tenant", # 임시 헤더/컨텍스트 파싱 처리 유도
     use_case: ReportAgentIssueUseCase = Depends(get_report_agent_issue_use_case)
 ):
-    issue = await use_case.execute(tenant_id=tenant_id, agent_id=agent_id, request=request)
-    return {"message": "Issue reported successfully", "id": issue.id}
+    issues = await use_case.execute(tenant_id=tenant_id, agent_id=agent_id, request=request.items)
+    return {
+        "message": "Issues reported successfully", 
+        "count": len(issues),
+        "ids": [issue.id for issue in issues]
+    }
