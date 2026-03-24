@@ -430,3 +430,46 @@ class GraphService:
             )
 
         raise UnauthorizedException(f"INTERNAL_ERROR|Failed to assign user: {res.text}")
+
+    async def check_global_admins(
+        self, tenant_id: str, guids: list[str]
+    ) -> set[str]:
+        """
+        주어진 사용자 GUID 목록 중 전역 관리자(Global Administrator) 역할을 보유한
+        사용자의 GUID set을 반환합니다. (Microsoft Graph /users/{id}/memberOf 활용)
+        """
+        # Azure AD 전역 관리자 역할 Template ID
+        global_admin_role_id = "62e90394-69f5-4237-9190-012177145e10"
+
+        if not guids:
+            return set()
+
+        token = await self._get_app_only_token(tenant_id)
+        headers = {"Authorization": f"Bearer {token}"}
+
+        global_admins: set[str] = set()
+
+        async with httpx.AsyncClient(headers=headers, timeout=10.0) as client:
+            async def _check_one(guid: str) -> bool:
+                try:
+                    res = await client.get(
+                        f"{self.base_url}/users/{guid}/memberOf/microsoft.graph.directoryRole",
+                        params={"$select": "roleTemplateId"},
+                    )
+                    if res.status_code != 200:
+                        return False
+                    roles = res.json().get("value", [])
+                    return any(
+                        r.get("roleTemplateId", "").lower() == global_admin_role_id
+                        for r in roles
+                    )
+                except Exception:
+                    return False
+
+            results = await asyncio.gather(*[_check_one(g) for g in guids])
+            for guid, is_admin in zip(guids, results, strict=True):
+                if is_admin:
+                    global_admins.add(guid)
+
+        return global_admins
+
