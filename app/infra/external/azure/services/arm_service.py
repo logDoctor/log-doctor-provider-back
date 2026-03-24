@@ -188,8 +188,98 @@ class AzureArmServiceImpl(AzureArmService):
                 {
                     "id": rg.get("id"),
                     "name": rg.get("name"),
-                    "location": rg.get("location")
+                    "location": rg.get("location"),
                 }
                 for rg in data.get("value", [])
                 if rg.get("name")
             ]
+
+    async def list_role_assignments(
+        self, access_token: str, subscription_id: str
+    ) -> list[dict]:
+        """특정 구독의 역할 할당(Role Assignments) 목록을 조회합니다."""
+        access_token = await self.token_provider.get_obo_token(access_token)
+
+        url = (
+            f"https://management.azure.com"
+            f"/subscriptions/{subscription_id}"
+            f"/providers/Microsoft.Authorization/roleAssignments"
+            f"?api-version=2022-04-01&$filter=atScope()"
+        )
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, headers=headers)
+
+            if response.status_code != 200:
+                self.logger.error(
+                    "azure_list_role_assignments_failed",
+                    status=response.status_code,
+                    body=response.text,
+                )
+                raise Exception(
+                    f"Failed to list role assignments: {response.status_code}"
+                )
+
+            data = response.json()
+            return data.get("value", [])
+
+    async def get_function_app_principal_id(
+        self, access_token: str, subscription_id: str, resource_group_name: str, function_app_name: str
+    ) -> str | None:
+        """Function App의 Managed Identity (Principal ID)를 조회합니다."""
+        access_token = await self.token_provider.get_obo_token(access_token)
+
+        url = (
+            f"https://management.azure.com"
+            f"/subscriptions/{subscription_id}"
+            f"/resourceGroups/{resource_group_name}"
+            f"/providers/Microsoft.Web/sites/{function_app_name}"
+            f"?api-version=2022-03-01"
+        )
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, headers=headers)
+
+            if response.status_code == 404:
+                return None
+
+            if response.status_code != 200:
+                self.logger.error(
+                    "azure_get_function_app_failed",
+                    status=response.status_code,
+                    body=response.text,
+                )
+                raise Exception(f"Failed to get Function App: {response.status_code}")
+
+            data = response.json()
+            # identity 필드 내부에서 principalId를 추출 (e.g. "identity": {"principalId": "..."})
+            identity = data.get("identity")
+            if identity and isinstance(identity, dict):
+                return identity.get("principalId")
+            return None
+
+    async def delete_role_assignment(
+        self, access_token: str, role_assignment_id: str
+    ) -> None:
+        """특정 역할 할당(Role Assignment)을 삭제합니다."""
+        access_token = await self.token_provider.get_obo_token(access_token)
+
+        # role_assignment_id는 일반적으로 absolute Azure 리소스 ID입니다: /subscriptions/...
+        url = f"https://management.azure.com{role_assignment_id}?api-version=2022-04-01"
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.delete(url, headers=headers)
+
+            if response.status_code in (200, 202, 204, 404):
+                return
+
+            self.logger.error(
+                "azure_delete_role_assignment_failed",
+                status=response.status_code,
+                body=response.text,
+                role_assignment_id=role_assignment_id
+            )
+            raise Exception(f"Failed to delete role assignment: {response.status_code}")

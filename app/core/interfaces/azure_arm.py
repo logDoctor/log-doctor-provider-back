@@ -43,3 +43,24 @@ class AzureArmService(ABC):
     ) -> None:
         """사용자의 배포 권한을 확인합니다. 권한이 없으면 예외를 발생시킵니다."""
         pass
+
+    @abstractmethod
+    async def list_role_assignments(
+        self, access_token: str, subscription_id: str
+    ) -> list[dict]:
+        """특정 구독의 역할 할당(Role Assignments) 목록을 조회합니다."""
+        pass
+
+    @abstractmethod
+    async def get_function_app_principal_id(
+        self, access_token: str, subscription_id: str, resource_group_name: str, function_app_name: str
+    ) -> str | None:
+        """Function App의 Managed Identity (Principal ID)를 조회합니다."""
+        pass
+
+    @abstractmethod
+    async def delete_role_assignment(
+        self, access_token: str, role_assignment_id: str
+    ) -> None:
+        """특정 역할 할당(Role Assignment)을 삭제합니다."""
+        pass
