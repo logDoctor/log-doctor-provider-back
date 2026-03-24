@@ -5,10 +5,23 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "16159863101583857373"
+      "templateHash": "3888471824886653793"
     }
   },
   "parameters": {
+    "openAiLocation": {
+      "type": "string",
+      "defaultValue": "eastus",
+      "allowedValues": [
+        "eastus",
+        "swedencentral",
+        "westus3",
+        "australiaeast"
+      ],
+      "metadata": {
+        "description": "OpenAI 리소스가 배포될 리전입니다. gpt-4o가 안정적으로 지원되는 리전을 선택해주세요."
+      }
+    },
     "appName": {
       "type": "string",
       "defaultValue": "logdoctor"
@@ -38,19 +51,18 @@
         "hidden": true
       }
     },
-    "providerPrincipalId": {
+    "publisherPrincipalId": {
       "type": "string",
       "defaultValue": "",
       "metadata": {
         "hidden": true
       }
     },
-    "deploymentId": {
+    "scannerRoleName": {
       "type": "string",
-      "defaultValue": "",
+      "defaultValue": "LogDoctor Diagnostic Scanner (Minimal)",
       "metadata": {
-        "hidden": true,
-        "description": "매 배포마다 고유 값을 전달하여 ARM이 설정 변경으로 인식하도록 합니다. Bicep 내부에서는 사용하지 않습니다."
+        "description": "생성할 커스텀 역할의 이름"
       }
     }
   },
@@ -60,7 +72,10 @@
     "uniqueId": "[uniqueString(subscription().subscriptionId, subscription().tenantId)]",
     "storageAccountName": "[format('st{0}', toLower(variables('uniqueId')))]",
     "functionAppName": "[format('{0}-{1}-fn-{2}', parameters('appName'), variables('env'), variables('uniqueId'))]",
-    "appServicePlanName": "[format('{0}-{1}-plan', parameters('appName'), variables('env'))]"
+    "appServicePlanName": "[format('{0}-{1}-plan', parameters('appName'), variables('env'))]",
+    "openAiDeploymentSuffix": "[substring(uniqueString(deployment().name), 0, 8)]",
+    "openAiAccountName": "[format('{0}-{1}-openai-{2}-{3}', parameters('appName'), variables('env'), variables('uniqueId'), variables('openAiDeploymentSuffix'))]",
+    "scannerRoleDefName": "[guid(subscription().id, parameters('scannerRoleName'))]"
   },
   "resources": [
     {
@@ -68,6 +83,137 @@
       "apiVersion": "2021-04-01",
       "name": "[parameters('resourceGroupName')]",
       "location": "[variables('location')]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleDefinitions",
+      "apiVersion": "2022-04-01",
+      "name": "[variables('scannerRoleDefName')]",
+      "properties": {
+        "roleName": "[parameters('scannerRoleName')]",
+        "description": "LogDoctor 진단을 위한 최소 읽기 권한 (인프라, 로그 쿼리, 진단 설정)",
+        "type": "customRole",
+        "permissions": [
+          {
+            "actions": [
+              "Microsoft.ResourceGraph/resources/read",
+              "Microsoft.Web/sites/Read",
+              "Microsoft.Compute/virtualMachines/read",
+              "Microsoft.Compute/virtualMachines/extensions/read",
+              "Microsoft.OperationalInsights/workspaces/read",
+              "Microsoft.OperationalInsights/workspaces/query/read",
+              "Microsoft.Insights/Components/Read",
+              "Microsoft.Insights/Logs/AppRequests/Read",
+              "Microsoft.CognitiveServices/accounts/read",
+              "Microsoft.CognitiveServices/accounts/deployments/read",
+              "Microsoft.Insights/diagnosticSettings/read",
+              "Microsoft.Insights/dataCollectionRuleAssociations/read"
+            ],
+            "notActions": [],
+            "dataActions": [
+              "Microsoft.OperationalInsights/workspaces/tables/data/read"
+            ],
+            "notDataActions": []
+          }
+        ],
+        "assignableScopes": [
+          "[subscription().id]"
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "openai-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('openAiLocation')]"
+          },
+          "openAiAccountName": {
+            "value": "[variables('openAiAccountName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "11055364492322921980"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "openAiAccountName": {
+              "type": "string"
+            },
+            "modelDeploymentName": {
+              "type": "string",
+              "defaultValue": "gpt-4o"
+            },
+            "openAiModelCapacity": {
+              "type": "int",
+              "defaultValue": 10
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('openAiAccountName')]",
+              "location": "[parameters('location')]",
+              "kind": "OpenAI",
+              "sku": {
+                "name": "S0"
+              },
+              "properties": {
+                "customSubDomainName": "[parameters('openAiAccountName')]",
+                "publicNetworkAccess": "Enabled"
+              }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', parameters('openAiAccountName'), parameters('modelDeploymentName'))]",
+              "sku": {
+                "name": "Standard",
+                "capacity": "[parameters('openAiModelCapacity')]"
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "gpt-4o",
+                  "version": "2024-05-13"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAiAccountName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "endpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('openAiAccountName')), '2023-05-01').endpoint]"
+            },
+            "openAiAccountId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAiAccountName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
     },
     {
       "type": "Microsoft.Resources/deployments",
@@ -107,8 +253,11 @@
           "publisherClientId": {
             "value": "[parameters('publisherClientId')]"
           },
-          "providerPrincipalId": {
-            "value": "[parameters('providerPrincipalId')]"
+          "publisherPrincipalId": {
+            "value": "[parameters('publisherPrincipalId')]"
+          },
+          "openAiEndpoint": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'openai-deployment'), '2025-04-01').outputs.endpoint.value]"
           }
         },
         "template": {
@@ -118,7 +267,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "9144476326769555665"
+              "templateHash": "9063753987135945556"
             }
           },
           "parameters": {
@@ -151,9 +300,12 @@
               "type": "string",
               "defaultValue": ""
             },
-            "providerPrincipalId": {
+            "publisherPrincipalId": {
               "type": "string",
               "defaultValue": ""
+            },
+            "openAiEndpoint": {
+              "type": "string"
             }
           },
           "resources": [
@@ -309,6 +461,10 @@
                     {
                       "name": "ApplicationInsightsAgent_EXTENSION_VERSION",
                       "value": "~3"
+                    },
+                    {
+                      "name": "AZURE_OPENAI_ENDPOINT",
+                      "value": "[parameters('openAiEndpoint')]"
                     }
                   ]
                 },
@@ -321,14 +477,14 @@
               ]
             },
             {
-              "condition": "[not(empty(parameters('providerPrincipalId')))]",
+              "condition": "[not(empty(parameters('publisherPrincipalId')))]",
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
               "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
-              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('providerPrincipalId'), subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'c6a89b2d-59bc-44d0-9896-0f6e12d7b80a'))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('publisherPrincipalId'), subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'c6a89b2d-59bc-44d0-9896-0f6e12d7b80a'))]",
               "properties": {
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'c6a89b2d-59bc-44d0-9896-0f6e12d7b80a')]",
-                "principalId": "[parameters('providerPrincipalId')]",
+                "principalId": "[parameters('publisherPrincipalId')]",
                 "principalType": "ServicePrincipal"
               },
               "dependsOn": [
@@ -340,11 +496,151 @@
             "functionAppHostName": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2023-01-01').defaultHostName]"
+            },
+            "functionAppPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2023-01-01', 'full').identity.principalId]"
             }
           }
         }
       },
       "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'openai-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "subscription-role-deployment",
+      "location": "[deployment().location]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'functions-deployment'), '2025-04-01').outputs.functionAppPrincipalId.value]"
+          },
+          "roleDefinitionId": {
+            "value": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('scannerRoleDefName'))]"
+          },
+          "roleAssignmentSeed": {
+            "value": "[variables('functionAppName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "6030510131034602421"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "역할을 할당할 서비스 주체의 Object ID"
+              }
+            },
+            "roleDefinitionId": {
+              "type": "string",
+              "metadata": {
+                "description": "할당할 역할 정의의 리소스 ID"
+              }
+            },
+            "roleAssignmentSeed": {
+              "type": "string",
+              "metadata": {
+                "description": "역할 할당에 사용할 고유 이름 시드"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(subscription().id, parameters('principalId'), parameters('roleDefinitionId'), parameters('roleAssignmentSeed'))]",
+              "properties": {
+                "roleDefinitionId": "[parameters('roleDefinitionId')]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('scannerRoleDefName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'functions-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "openai-role-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "logDoctorPrincipalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'functions-deployment'), '2025-04-01').outputs.functionAppPrincipalId.value]"
+          },
+          "openAiAccountName": {
+            "value": "[variables('openAiAccountName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "10986268026302259077"
+            }
+          },
+          "parameters": {
+            "logDoctorPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "LogDoctor 앱의 Managed Identity 또는 Service Principal의 Object ID"
+              }
+            },
+            "openAiAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "사용할 Azure OpenAI 리소스의 이름"
+              }
+            }
+          },
+          "variables": {
+            "openAiUserRoleId": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAiAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('openAiAccountName')), variables('openAiUserRoleId'), parameters('logDoctorPrincipalId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('openAiUserRoleId'))]",
+                "principalId": "[parameters('logDoctorPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'functions-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
       ]
     }

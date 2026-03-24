@@ -7,7 +7,8 @@ param tenantId string
 param subscriptionId string
 param packageUrl string = ''
 param publisherClientId string = '' // 변경
-param providerPrincipalId string = ''
+param publisherPrincipalId string = ''
+param openAiEndpoint string
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
@@ -149,6 +150,10 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           name: 'ApplicationInsightsAgent_EXTENSION_VERSION'
           value: '~3'
         }
+        {
+          name: 'AZURE_OPENAI_ENDPOINT'
+          value: openAiEndpoint
+        }
       ]
     }
     httpsOnly: true
@@ -162,14 +167,16 @@ resource storageQueueDataMessageSenderRole 'Microsoft.Authorization/roleDefiniti
   scope: subscription()
   name: 'c6a89b2d-59bc-44d0-9896-0f6e12d7b80a'
 }
-resource providerQueueRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(providerPrincipalId)) {
-  name: guid(storageAccount.id, providerPrincipalId, storageQueueDataMessageSenderRole.id)
+resource providerQueueRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(publisherPrincipalId)) {
+  name: guid(storageAccount.id, publisherPrincipalId, storageQueueDataMessageSenderRole.id)
   scope: storageAccount
   properties: {
-    roleDefinitionId: storageQueueDataMessageSenderRole.id
-    principalId: providerPrincipalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'c6a89b2d-59bc-44d0-9896-0f6e12d7b80a') // Storage Queue Data Message Sender
+    principalId: publisherPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
 
+
 output functionAppHostName string = functionApp.properties.defaultHostName
+output functionAppPrincipalId string = functionApp.identity.principalId
