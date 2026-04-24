@@ -46,9 +46,10 @@ class GetSubscriptionSetupInfoUseCase:
         if has_permission:
             encoded_uri = quote(bicep_url, safe="")
             encoded_params = quote(json.dumps(parameters), safe="")
-            # 💡 Azure Portal에서 올바른 테넌트와 구독이 자동 선택되도록 URL을 구성합니다.
-            # 1. URL 경로에 테넌트 ID를 포함하여 해당 디렉터리로 강제 전환합니다.
-            # 2. fragment에 subscriptionId를 추가하여 해당 구독이 기본 선택되도록 유도합니다.
+            # 💡 Azure Portal 딥링크 구성
+            # - 테넌트 ID를 URL 경로에 포함하여 올바른 디렉터리로 전환합니다.
+            # - subscriptionId를 포함하여 올바른 구독이 기본 선택되도록 합니다.
+            #   (targetScope, parameters 등과 동일한 비공식 fragment 파라미터)
             tenant_prefix = f"{identity.tenant_id}/" if identity.tenant_id else ""
             portal_link = (
                 f"https://portal.azure.com/{tenant_prefix}#create/Microsoft.Template"
