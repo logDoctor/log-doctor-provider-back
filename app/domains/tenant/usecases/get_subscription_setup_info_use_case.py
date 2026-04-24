@@ -50,9 +50,9 @@ class GetSubscriptionSetupInfoUseCase:
             # - 테넌트 ID를 URL 경로에 포함하여 올바른 디렉터리로 전환합니다.
             # - subscriptionId를 포함하여 올바른 구독이 기본 선택되도록 합니다.
             #   (targetScope, parameters 등과 동일한 비공식 fragment 파라미터)
-            tenant_prefix = f"{identity.tenant_id}/" if identity.tenant_id else ""
+            tenant_at = f"@{identity.tenant_id}" if identity.tenant_id else ""
             portal_link = (
-                f"https://portal.azure.com/{tenant_prefix}#create/Microsoft.Template"
+                f"https://portal.azure.com/#{tenant_at}/create/Microsoft.Template"
                 f"/uri/{encoded_uri}"
                 f"/targetScope/subscription"
                 f"/subscriptionId/{subscription_id}"
