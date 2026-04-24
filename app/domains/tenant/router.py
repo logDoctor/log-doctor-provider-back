@@ -98,7 +98,7 @@ class TenantRouter:
         """
         현재 팀 내의 알림 수신 가능한 채널 목록을 조회합니다.
         """
-        return await use_case.execute(identity.tenant_id, team_id)
+        return await use_case.execute(identity.tenant_id, team_id, sso_token=identity.sso_token)
 
     @router.get("/me/teams", response_model=list[dict])
     async def list_available_teams(
@@ -109,7 +109,7 @@ class TenantRouter:
         """
         사용자가 가입한 팀 목록을 조회합니다.
         """
-        return await use_case.execute(identity.tenant_id)
+        return await use_case.execute(identity.tenant_id, sso_token=identity.sso_token)
 
     # --- Subscription 관련 엔드포인트 통합 ---
 

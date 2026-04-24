@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.endpoints.inspection_rules import router as inspection_rules_router
 from app.api.v1.endpoints.teams_webhook import router as teams_webhook_router
 from app.api.v1.endpoints.template import router as template_router
 from app.domains.agent.router import router as agent_router
@@ -17,3 +18,4 @@ v1_router.include_router(agent_router, prefix="/agents")
 v1_router.include_router(report_router, prefix="/reports")
 v1_router.include_router(license_router, prefix="/licenses")
 v1_router.include_router(package_router, prefix="/packages")
+v1_router.include_router(inspection_rules_router, prefix="/inspection-rules")

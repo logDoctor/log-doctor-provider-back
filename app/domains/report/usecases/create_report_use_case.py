@@ -140,6 +140,8 @@ class CreateReportUseCase:
             request_params["start_time"] = request.start_time
         if request.end_time:
             request_params["end_time"] = request.end_time
+        if request.language:
+            request_params["language"] = request.language
         return request_params
 
     def _should_be_initial(self, existing_initial: Report | None) -> bool:

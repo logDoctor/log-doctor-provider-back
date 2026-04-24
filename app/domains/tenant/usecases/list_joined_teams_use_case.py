@@ -10,5 +10,5 @@ class ListJoinedTeamsUseCase:
     def __init__(self, graph_service: GraphService):
         self.graph_service = graph_service
 
-    async def execute(self, tenant_id: str) -> list[dict]:
-        return await self.graph_service.list_joined_teams(tenant_id)
+    async def execute(self, tenant_id: str, sso_token: str | None = None) -> list[dict]:
+        return await self.graph_service.list_joined_teams(tenant_id, sso_token)

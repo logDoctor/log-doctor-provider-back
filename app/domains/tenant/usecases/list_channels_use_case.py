@@ -10,9 +10,9 @@ class ListChannelsUseCase:
     def __init__(self, graph_service: GraphService):
         self.graph_service = graph_service
 
-    async def execute(self, tenant_id: str, team_id: str) -> list[dict]:
+    async def execute(self, tenant_id: str, team_id: str, sso_token: str | None = None) -> list[dict]:
         if not team_id:
             logger.warning("team_id is missing during channel listing", tenant_id=tenant_id)
             return []
             
-        return await self.graph_service.list_channels(tenant_id, team_id)
+        return await self.graph_service.list_channels(tenant_id, team_id, sso_token)

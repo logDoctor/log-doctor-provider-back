@@ -19,13 +19,22 @@ class GetTenantStatusUseCase:
             await self.token_provider.get_obo_token(identity.sso_token)
         except Exception as e:
             obo_error = e
-            # 전역 관리자라면 우선 이 에러를 무시하고 진행합니다. (나중에 등록 가이드로 보내기 위해)
+            # 🛡️ [REFINED] CONSENT_REQUIRED나 MFA_REQUIRED는 유저가 조치 가능한 치명적 인증 에러이므로 즉시 발생시킵니다.
+            error_msg = str(e)
+            if "CONSENT_REQUIRED" in error_msg or "MFA_REQUIRED" in error_msg:
+                raise e
+
+            # 전역 관리자라면 그 외의 에러(단순 교환 실패 등)는 우선 무시하고 진행합니다. (나중에 등록 가이드로 보내기 위해)
             if not identity.is_directory_admin():
                 raise e
 
         tenant = await self.tenant_repository.get_by_id(identity.tenant_id)
 
         if not tenant:
+            # 🛡️ [REFINED] DB에 없더라도 토큰 교환 과정에서 발생한 에러가 있다면 이를 최우선적으로 리턴합니다.
+            if obo_error:
+                raise obo_error
+
             # 미등록 상태인데 전역 관리자라면 -> '가입 가이드(404)'
             if identity.is_directory_admin():
                 raise NotFoundException(

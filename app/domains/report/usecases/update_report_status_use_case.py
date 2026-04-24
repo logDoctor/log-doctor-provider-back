@@ -1,9 +1,12 @@
 import asyncio
 
 from app.core.exceptions import NotFoundException
+from app.core.logging import get_logger
 from app.domains.notification.service import NotificationService
 from app.domains.report.models import ReportStatus
 from app.domains.report.repository import DiagnosisRepository, ReportRepository
+
+logger = get_logger("update_report_status_use_case")
 
 
 # TODO: 리팩토링 필요
@@ -37,26 +40,39 @@ class UpdateReportStatusUseCase:
                 tenant_id, report_id
             )
             total = len(diagnoses)
-            
-            def get_val(d, key, default):
-                return d.get(key, default) if isinstance(d, dict) else getattr(d, key, default)
 
-            detected = sum(1 for d in diagnoses if get_val(d, "status", "").lower() != "healthy")
-            healthy = sum(1 for d in diagnoses if get_val(d, "status", "").lower() == "healthy")
+            def get_val(d, key, default):
+                return (
+                    d.get(key, default)
+                    if isinstance(d, dict)
+                    else getattr(d, key, default)
+                )
+
+            detected = sum(
+                1 for d in diagnoses if get_val(d, "status", "").lower() != "healthy"
+            )
+            healthy = sum(
+                1 for d in diagnoses if get_val(d, "status", "").lower() == "healthy"
+            )
             resolved = sum(1 for d in diagnoses if get_val(d, "is_resolved", False))
 
-            rgs = {}  # {name: id}
+            rgs = {}  # {lower_name: {"id": id, "name": original_name}}
             for d in diagnoses:
                 rg_dict = get_val(d, "resource_group", None)
                 if isinstance(rg_dict, dict) and "name" in rg_dict:
-                    rgs[rg_dict["name"]] = rg_dict.get("id", "")
+                    name = rg_dict["name"]
+                    lower_name = name.lower()
+                    if lower_name not in rgs:
+                        rgs[lower_name] = {"id": rg_dict.get("id", ""), "name": name}
 
             calculated_summary = {
                 "total_diagnosis_count": total,
                 "resolved_diagnosis_count": resolved,
                 "detected_diagnosis_count": detected,
                 "healthy_diagnosis_count": healthy,
-                "resource_groups": [{"id": id, "name": name} for name, id in rgs.items()],
+                "resource_groups": [
+                    {"id": info["id"], "name": info["name"]} for info in rgs.values()
+                ],
             }
 
         updated_fields = report.update(
@@ -67,11 +83,18 @@ class UpdateReportStatusUseCase:
             await self.report_repository.update_report(report)
 
             if "status" in updated_fields and report.status == ReportStatus.COMPLETED:
-                asyncio.create_task(
-                    self.notification_service.notify_analysis_completed(
-                        tenant_id=report.tenant_id,
-                        report_id=report.id,
-                        summary="Detailed diagnosis results available.",
-                        agent_id=report.agent_id,
+                try:
+                    asyncio.create_task(
+                        self.notification_service.notify_analysis_completed(
+                            tenant_id=report.tenant_id,
+                            report_id=report.id,
+                            summary="detailed_diagnosis_results_available",
+                            agent_id=report.agent_id,
+                            language=report.request_params.get("language")
+                            if report.request_params
+                            else "ko",
+                        )
                     )
-                )
+                    logger.info("triggering_notification", report_id=report.id, language=report.request_params.get("language") if report.request_params else "MISSING")
+                except Exception as e:
+                    logger.error("failed_to_trigger_notification", report_id=report.id, error=str(e))

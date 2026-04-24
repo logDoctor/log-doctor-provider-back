@@ -60,6 +60,7 @@ class CreateReportRequest(BaseModel):
     agent_id: str
     start_time: str | None = None
     end_time: str | None = None
+    language: str | None = "ko"
     configurations: list[DiagnosticRuleConfiguration]
 
 
