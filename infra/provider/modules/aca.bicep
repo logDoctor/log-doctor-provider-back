@@ -26,6 +26,11 @@ param entraClientId string
 @secure()
 param entraClientSecret string = ''
 param entraTenantId string = ''
+param tabResourceDomain string = ''
+param tenantAdminRoleId string = ''
+param privilegedUserRoleId string = ''
+param platformAdminRoleId string = ''
+param teamsAppId string = ''
 
 // 1. ACA 환경 (Managed Environment)
 resource cae 'Microsoft.App/managedEnvironments@2023-05-01' = {
@@ -71,6 +76,7 @@ resource aca 'Microsoft.App/containerApps@2023-05-01' = {
             'http://localhost:53000'
             'http://localhost:3000'
             'https://localhost:3000'
+            'https://ashy-river-0fb38b600.7.azurestaticapps.net'
           ]
           allowedMethods: [
             '*'
@@ -117,6 +123,11 @@ resource aca 'Microsoft.App/containerApps@2023-05-01' = {
             { name: 'COSMOS_KEY', value: cosmosKey }
             { name: 'AGENT_PACKAGE_CONTAINER', value: 'agent-packages' }
             { name: 'DOWNLOAD_SECRET_KEY', value: uniqueString(resourceGroup().id, acaName, 'download-secret') }
+            { name: 'TAB_RESOURCE_DOMAIN', value: tabResourceDomain }
+            { name: 'TEAMS_APP_ID', value: teamsAppId }
+            { name: 'TENANT_ADMIN_ROLE_ID', value: tenantAdminRoleId }
+            { name: 'PRIVILEGED_USER_ROLE_ID', value: privilegedUserRoleId }
+            { name: 'PLATFORM_ADMIN_ROLE_ID', value: platformAdminRoleId }
           ]
         }
       ]

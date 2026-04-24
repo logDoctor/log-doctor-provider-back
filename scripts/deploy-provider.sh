@@ -3,19 +3,25 @@
 # Provider Backend "One-Stop" 배포 자동화 스크립트
 # 리소스 그룹 생성, ACR 초기화, 이미지 빌드, ACA 배포를 한 번에 처리합니다.
 # Usage: ./scripts/deploy-provider.sh <env> <resource-group-name> [entra-client-id] [location]
-# Example: ./scripts/deploy-provider.sh dev logdoctor-dev-rg 2bc30b69-1a29-4079-8a7b-eddd486508bb koreacentral
+# Example: ./scripts/deploy-provider.sh dev logdoctor-dev-rg 441b4d0e-a91f-4e3a-8f88-07a492e982aa koreacentral
 
 set -e
 
-# .env 파일 로드 (존재하는 경우)
-if [ -f .env ]; then
-    echo ">>> .env 파일에서 설정 로드 중..."
+ENV=${1:-"dev"}
+
+# .env.<env> 파일 로드 (존재하는 경우)
+if [ -f ".env.${ENV}" ]; then
+    echo ">>> .env.${ENV} 파일에서 설정 로드 중..."
     # 주석 제외하고 export
-    export $(grep -v '^#' .env | xargs)
+    export $(grep -v '^#' ".env.${ENV}" | xargs)
 fi
 
-ENV=${1:-"dev"}
-RG_NAME=${2:-"logdoctor"}
+# 1.5 구독 자동 전환
+if [ -n "$AZURE_SUBSCRIPTION_ID" ]; then
+    echo ">>> Azure 구독 전환 중: $AZURE_SUBSCRIPTION_ID"
+    az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+fi
+RG_NAME=${2:-${AZURE_RESOURCE_GROUP_NAME:-"logdoctor"}}
 # 파라미터가 없으면 .env의 CLIENT_ID 사용
 ENTRA_ID=${3:-$CLIENT_ID}
 LOCATION=${4:-"koreacentral"}
@@ -95,7 +101,9 @@ else
 fi
 
 echo ">>> [4/5] 전체 서비스 인프라 배포 (ACA/Cosmos 등)"
-PARAM_EXTRA="--parameters authMethod=${AUTH_METHOD} entraClientId=${ENTRA_ID} entraTenantId=${ENTRA_TENANT_ID} entraClientSecret=${ENTRA_CLIENT_SECRET}"
+TAB_RESOURCE_DOMAIN=${TAB_RESOURCE_DOMAIN:-""}
+TEAMS_APP_ID=${TEAMS_APP_ID:-""}
+PARAM_EXTRA="--parameters authMethod=${AUTH_METHOD} entraClientId=${ENTRA_ID} entraTenantId=${ENTRA_TENANT_ID} entraClientSecret=${ENTRA_CLIENT_SECRET} tabResourceDomain=${TAB_RESOURCE_DOMAIN} teamsAppId=${TEAMS_APP_ID} tenantAdminRoleId=${TENANT_ADMIN_ROLE_ID} privilegedUserRoleId=${PRIVILEGED_USER_ROLE_ID} platformAdminRoleId=${PLATFORM_ADMIN_ROLE_ID}"
 
 DEPLOY_NAME="service-deploy-${IMAGE_TAG}"
 # bootstrapOnly=false(기본값)로 설정하여 전체 리소스 배포 및 이미지 교체

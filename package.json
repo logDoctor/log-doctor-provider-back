@@ -1,0 +1,8 @@
+{
+    "name": "log-doctor-provider-back",
+    "private": true,
+    "scripts": {
+        "deploy:dev": "bash ./scripts/deploy-provider.sh dev logdoctor",
+        "deploy:prod": "bash ./scripts/deploy-provider.sh prod log-doctor-publisher"
+    }
+}

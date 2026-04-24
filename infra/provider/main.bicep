@@ -11,6 +11,11 @@ param authMethod string = 'managed_identity'
 param entraClientSecret string = ''
 param entraTenantId string = ''
 param bootstrapOnly bool = false
+param tabResourceDomain string = ''
+param teamsAppId string = ''
+param tenantAdminRoleId string = ''
+param privilegedUserRoleId string = ''
+param platformAdminRoleId string = ''
 
 var baseName = '${appName}-${env}'
 
@@ -92,6 +97,11 @@ module aca 'modules/aca.bicep' = if (!bootstrapOnly) {
     authMethod: authMethod
     entraClientSecret: entraClientSecret
     entraTenantId: entraTenantId
+    tabResourceDomain: tabResourceDomain
+    teamsAppId: teamsAppId
+    tenantAdminRoleId: tenantAdminRoleId
+    privilegedUserRoleId: privilegedUserRoleId
+    platformAdminRoleId: platformAdminRoleId
   }
 }
 
