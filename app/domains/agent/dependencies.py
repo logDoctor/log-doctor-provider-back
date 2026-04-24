@@ -43,9 +43,10 @@ def get_tenant_user_list_agents_use_case(
         get_subscription_repository
     ),
     tenant_repository: TenantRepository = Depends(get_tenant_repository),
+    azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
 ) -> TenantUserListAgentsUseCase:
     return TenantUserListAgentsUseCase(
-        repository, subscription_repository, tenant_repository
+        repository, subscription_repository, tenant_repository, azure_arm_service
     )
 
 

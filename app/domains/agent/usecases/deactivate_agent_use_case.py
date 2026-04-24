@@ -1,7 +1,7 @@
 import structlog
 
 from app.core.auth.models import Identity
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import ForbiddenException, NotFoundException
 from app.core.interfaces.azure_arm import AzureArmService
 from app.domains.agent.repository import AgentRepository
 from app.domains.agent.schemas import AgentResponse, DeactivateAgentResponse
@@ -32,6 +32,21 @@ class DeactivateAgentUseCase:
         )
         if not agent:
             raise NotFoundException(f"Agent {agent_id} not found.")
+
+        # 사전 권한 검증: 사용자에게 리소스 그룹 쓰기 권한이 있는지 확인
+        try:
+            await self.azure_arm_service.check_deployment_permission(
+                identity.sso_token, agent.subscription_id
+            )
+        except ForbiddenException as e:
+            logger.warning(
+                "User lacks permission to deactivate agent",
+                agent_id=agent_id,
+                subscription_id=agent.subscription_id,
+            )
+            raise ForbiddenException(
+                "AGENT_MANAGE_FORBIDDEN|You do not have sufficient permissions to deactivate this agent. Azure Contributor role is required."
+            ) from e
 
         agent.deactivate()
 

@@ -1,5 +1,8 @@
+import asyncio
+
 from app.core.auth import Identity, get_obo_access_token
 from app.core.exceptions import ForbiddenException
+from app.core.interfaces.azure_arm import AzureArmService
 from app.domains.agent.repository import AgentRepository
 from app.domains.agent.schemas import AgentResponse, TenantUserListAgentsResponse
 from app.domains.tenant.repositories import SubscriptionRepository, TenantRepository
@@ -17,10 +20,12 @@ class TenantUserListAgentsUseCase:
         agent_repository: AgentRepository,
         subscription_repository: SubscriptionRepository,
         tenant_repository: TenantRepository,
+        azure_arm_service: AzureArmService,
     ):
         self.agent_repository = agent_repository
         self.subscription_repository = subscription_repository
         self.tenant_repository = tenant_repository
+        self.azure_arm_service = azure_arm_service
 
     async def execute(
         self,
@@ -53,8 +58,28 @@ class TenantUserListAgentsUseCase:
             target_tid, subscription_ids=allowed_sub_ids, skip=skip, limit=limit
         )
 
+        unique_subs = list({a.subscription_id for a in items if getattr(a, "subscription_id", None)})
+        sub_permissions = {}
+
+        async def check_perm(sub_id: str):
+            try:
+                await self.azure_arm_service.check_deployment_permission(identity.sso_token, sub_id)
+                return sub_id, True
+            except Exception:
+                return sub_id, False
+
+        if unique_subs:
+            results = await asyncio.gather(*(check_perm(sub) for sub in unique_subs))
+            sub_permissions = dict(results)
+
+        response_items = []
+        for a in items:
+            resp = AgentResponse.model_validate(a)
+            resp.can_manage = sub_permissions.get(resp.subscription_id, False)
+            response_items.append(resp)
+
         return TenantUserListAgentsResponse(
-            items=[AgentResponse.model_validate(a) for a in items],
+            items=response_items,
             total_count=total,
             skip=skip,
             limit=limit,

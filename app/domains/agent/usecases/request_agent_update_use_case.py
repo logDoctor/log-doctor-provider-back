@@ -4,6 +4,7 @@ from app.core.auth import get_obo_access_token
 from app.core.auth.models import Identity
 from app.core.exceptions import (
     ConflictException,
+    ForbiddenException,
     InternalServerException,
     NotFoundException,
 )
@@ -57,6 +58,21 @@ class RequestAgentUpdateUseCase:
             package.filename
         )
 
+        # 사전 권한 검증: 사용자에게 리소스 그룹 쓰기 권한이 있는지 확인
+        try:
+            await self.azure_arm_service.check_deployment_permission(
+                identity.sso_token, agent.subscription_id
+            )
+        except ForbiddenException as e:
+            logger.warning(
+                "User lacks permission to update agent",
+                agent_id=agent_id,
+                subscription_id=agent.subscription_id,
+            )
+            raise ForbiddenException(
+                "AGENT_MANAGE_FORBIDDEN|You do not have sufficient permissions to update this agent. Azure Contributor role is required."
+            ) from e
+
         arm_token = await get_obo_access_token(identity.sso_token)
 
         try:
@@ -69,6 +85,12 @@ class RequestAgentUpdateUseCase:
                     "WEBSITE_RUN_FROM_PACKAGE": new_package_url,
                 },
             )
+        except ForbiddenException as e:
+            # check_deployment_permission 외에 ARM 내부 호출 중 403이 나온 경우
+            logger.error("Agent update forbidden", agent_id=agent_id, error=str(e))
+            raise ForbiddenException(
+                "AGENT_MANAGE_FORBIDDEN|You do not have sufficient permissions to update this agent. Azure Contributor role is required."
+            ) from e
         except Exception as e:
             logger.error("Agent update failed", agent_id=agent_id, error=str(e))
             raise InternalServerException(

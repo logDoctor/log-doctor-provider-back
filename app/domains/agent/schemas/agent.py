@@ -49,6 +49,7 @@ class AgentResponse(BaseModel):
     analysis_schedule: str
     last_handshake_at: str
     teams_info: dict | None = None
+    can_manage: bool = False
 
 
 class UpdateAgentRequest(BaseModel):
