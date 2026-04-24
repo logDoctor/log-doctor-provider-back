@@ -1,8 +1,11 @@
 import asyncio
+import json
+import urllib.parse
 
 import structlog
 
 from app.core.auth.services.graph_service import GraphService
+from app.core.config import settings
 from app.domains.agent.repository import AgentRepository
 from app.domains.tenant.repositories import TenantRepository
 from app.infra.external.teams import TeamsBotService
@@ -11,6 +14,27 @@ from .models import Notification, NotificationStatus, NotificationType
 from .repository import NotificationRepository
 
 logger = structlog.get_logger()
+
+TRANSLATIONS = {
+    "ko": {
+        "analysis_completed_title": "📊 **진단 분석 완료 (Log Doctor)**",
+        "report_id_label": "진단 보고서 ID",
+        "summary_label": "요약",
+        "view_details_btn": "보고서 상세보기",
+        "activity_topic": "진단 분석 완료 (Log Doctor)",
+        "activity_summary_prefix": "진단 분석 완료: ",
+        "detailed_diagnosis_results_available": "상세 진단 결과가 준비되었습니다.",
+    },
+    "en": {
+        "analysis_completed_title": "📊 **Analysis Complete (Log Doctor)**",
+        "report_id_label": "Report ID",
+        "summary_label": "Summary",
+        "view_details_btn": "View Report Details",
+        "activity_topic": "Analysis Complete (Log Doctor)",
+        "activity_summary_prefix": "Analysis Complete: ",
+        "detailed_diagnosis_results_available": "Detailed diagnosis results available.",
+    },
+}
 
 
 class NotificationService:
@@ -34,7 +58,12 @@ class NotificationService:
         self.notification_repository = notification_repository
 
     async def notify_analysis_completed(
-        self, tenant_id: str, report_id: str, summary: str, agent_id: str | None = None
+        self,
+        tenant_id: str,
+        report_id: str,
+        summary: str,
+        agent_id: str | None = None,
+        language: str = "ko",
     ):
         """분석이 완료되었음을 채널 게시 및 활동 피드를 통해 알립니다."""
         tenant = await self.tenant_repository.get_by_id(tenant_id)
@@ -45,7 +74,9 @@ class NotificationService:
         # 🚀 에이전트 전용 채널 오버라이드 및 Fallback 로직
         teams_info = None
         if agent_id:
-            agent = await self.agent_repository.get_by_id(tenant_id=tenant_id, id=agent_id)
+            agent = await self.agent_repository.get_by_id(
+                tenant_id=tenant_id, id=agent_id
+            )
             if agent and getattr(agent, "teams_info", None):
                 teams_info = agent.teams_info
 
@@ -56,9 +87,32 @@ class NotificationService:
         recipient_count = 0
 
         # 1. 채널 알림 구성 (Teams Bot 사용 - Adaptive Card)
-        if teams_info and getattr(teams_info, "channel_id", None) or (isinstance(teams_info, dict) and teams_info.get("channel_id")):
-            channel_id = teams_info.channel_id if hasattr(teams_info, "channel_id") else teams_info.get("channel_id")
-            service_url = teams_info.service_url if hasattr(teams_info, "service_url") else teams_info.get("service_url", "https://smba.trafficmanager.net/kr/")
+        if (
+            teams_info
+            and getattr(teams_info, "channel_id", None)
+            or (isinstance(teams_info, dict) and teams_info.get("channel_id"))
+        ):
+            channel_id = (
+                teams_info.channel_id
+                if hasattr(teams_info, "channel_id")
+                else teams_info.get("channel_id")
+            )
+            service_url = (
+                teams_info.service_url
+                if hasattr(teams_info, "service_url")
+                else teams_info.get(
+                    "service_url", "https://smba.trafficmanager.net/kr/"
+                )
+            )
+
+            context_json = json.dumps({"subEntityId": report_id})
+            encoded_context = urllib.parse.quote(context_json)
+            deep_link = f"https://teams.microsoft.com/l/entity/{settings.TEAMS_APP_ID}/index?subEntityId={report_id}&context={encoded_context}"
+
+            # 🚀 [FIX] en-US, ko-KR 등 다양한 언어 형식을 'en', 'ko'로 정규화하여 처리합니다.
+            lang_code = (language or "ko").split("-")[0].lower()
+            t = TRANSLATIONS.get(lang_code, TRANSLATIONS["en"])
+            translated_summary = t.get(summary, summary)
 
             adaptive_card_payload = {
                 "type": "AdaptiveCard",
@@ -66,23 +120,23 @@ class NotificationService:
                 "body": [
                     {
                         "type": "TextBlock",
-                        "text": "📊 **진단 분석 완료 (Log Doctor)**",
+                        "text": t["analysis_completed_title"],
                         "weight": "Bolder",
                         "size": "Large",
                     },
                     {
                         "type": "FactSet",
                         "facts": [
-                            {"title": "진단 보고서 ID", "value": report_id},
-                            {"title": "요약", "value": summary},
+                            {"title": t["report_id_label"], "value": report_id},
+                            {"title": t["summary_label"], "value": translated_summary},
                         ],
                     },
                 ],
                 "actions": [
                     {
                         "type": "Action.OpenUrl",
-                        "title": "보고서 상세보기",
-                        "url": f"https://teams.microsoft.com/l/entity/ad66dd18-ef73-4fca-86d6-422f9d1759e1/index0?subEntityId={report_id}",
+                        "title": t["view_details_btn"],
+                        "url": deep_link,
                     }
                 ],
             }
@@ -98,15 +152,18 @@ class NotificationService:
         # 2. 활동 피드 알림 구성
         topic = {
             "source": "text",
-            "value": "진단 분석 완료 (Log Doctor)",
-            "webUrl": f"https://teams.microsoft.com/l/entity/ad66dd18-ef73-4fca-86d6-422f9d1759e1/index0?subEntityId={report_id}",
+            "value": t["activity_topic"],
+            "webUrl": deep_link,
         }
         for admin in tenant.privileged_accounts:
             user_id = admin.get("user_id")
             if user_id:
                 tasks.append(
                     self.graph_service.send_activity_notification(
-                        tenant_id, user_id, topic, f"Analysis Complete: {summary}"
+                        tenant_id,
+                        user_id,
+                        topic,
+                        f"{t['activity_summary_prefix']}{translated_summary}",
                     )
                 )
                 recipient_count += 1
