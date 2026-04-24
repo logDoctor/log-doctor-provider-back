@@ -68,15 +68,15 @@ class EntraIDTokenProvider(TokenProvider):
     ) -> str:
         payload = self.jwt_service.extract_payload(sso_token)
 
-        if self._is_already_management_token(payload):
-            logger.info("Direct Management API token detected, skipping OBO exchange")
+        final_scopes = scopes or ["https://management.azure.com/user_impersonation"]
+        target_resource = "ARM" if "management.azure.com" in final_scopes[0] else "GRAPH"
+
+        if self._is_token_already_for_target(payload, target_resource):
+            logger.info(f"Target {target_resource} token already present, skipping OBO exchange")
             return sso_token
 
         tid = payload.get("tid") or "common"
         authority = f"https://login.microsoftonline.com/{tid}"
-        final_scopes = scopes or [
-            "https://management.azure.com/user_impersonation"
-        ]
 
         app = msal.ConfidentialClientApplication(
             settings.CLIENT_ID,
@@ -155,32 +155,36 @@ class EntraIDTokenProvider(TokenProvider):
             f"Failed to acquire bot token: {result.get('error')}"
         )
 
-    def _is_already_management_token(self, payload: dict) -> bool:
+    def _is_token_already_for_target(self, payload: dict, target: str) -> bool:
         """
-        토큰이 이미 Azure Management API용 권한을 직접적으로 가지고 있는지 확인합니다.
-
-        검증 기준:
-        1. Audience (aud - 수신처): 토큰의 목적지가 Azure Resource Manager(ARM) API 주소인지 확인합니다.
-           - https://management.azure.com/ : 일반적인 Azure 리소스 관리 주소
-           - https://management.core.windows.net/ : 레거시/핵심 관리 주소
-        2. Scope (scp - 권한 범위): 'user_impersonation' 권한이 이미 포함되어 있는지 확인합니다.
-           - 이 권한이 있다면 사용자를 대신해 리소스를 조작할 수 있는 상태입니다.
-
-        이 체크가 필요한 이유:
-        - 프론트엔드에서 이미 ARM용 토큰을 직접 획득해서 보낸 경우, 이를 다시 OBO(On-Behalf-Of)
-          교환하려고 시도하면 Azure AD(Entra ID)에서 중복/형식 오류를 발생시킵니다.
-        - 개발자 도구(CLI)나 테스트 환경에서 발급받은 '마스터키'급 토큰을 바로 사용할 수 있게 해줍니다.
+        토큰이 이미 목표 리소스(Graph 혹은 ARM)용인지 확인합니다.
+        
+        오디언스(aud)가 백엔드 자신의 Client ID라면 이는 'Identity/Middle-tier' 토큰이므로 
+        반드시 OBO 교환을 거쳐야 합니다.
         """
-        audience = payload.get("aud")
+        audience = payload.get("aud", "")
+        # v1.0 토큰은 scp, v2.0 토큰은 roles 혹은 scp에 권한이 들어있을 수 있음
         scp = payload.get("scp", "")
 
-        is_mgmt_aud = audience in [
-            "https://management.azure.com/",
-            "https://management.core.windows.net/",
-        ]
-        has_user_impersonation = "user_impersonation" in scp
+        # 1. ARM 타겟 확인
+        if target == "ARM":
+            is_arm_aud = audience in [
+                "https://management.azure.com/",
+                "https://management.azure.com",
+                "https://management.core.windows.net/",
+            ]
+            return is_arm_aud or "user_impersonation" in scp
 
-        return is_mgmt_aud or has_user_impersonation
+        # 2. Graph 타겟 확인
+        if target == "GRAPH":
+            is_graph_aud = audience in [
+                "https://graph.microsoft.com",
+                "https://graph.microsoft.com/",
+                "00000003-0000-0000-c000-000000000000",
+            ]
+            return is_graph_aud
+
+        return False
 
     def _handle_msal_error(self, result: dict):
         """MSAL 결과 딕셔너리에서 에러 상황을 분석하여 적절한 예외를 발생시킵니다."""

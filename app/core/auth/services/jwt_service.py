@@ -60,8 +60,11 @@ class JwtService:
             signing_key = self.jwk_client.get_signing_key_from_jwt(token)
 
             # Teams SSO 토큰(`api://`) 또는 Azure Management 토큰(`https://management.azure.com`) 모두 허용
-            audience = f"api://{settings.CLIENT_ID}"
-            allowed_audiences = [audience, settings.CLIENT_ID, "https://management.azure.com/", "https://management.azure.com"]
+            allowed_audiences = [f"api://{settings.CLIENT_ID}", settings.CLIENT_ID, "https://management.azure.com/", "https://management.azure.com"]
+            
+            # Custom Resource Domain이 설정된 경우 해당 형식도 허용
+            if settings.TAB_RESOURCE_DOMAIN:
+                allowed_audiences.append(f"api://{settings.TAB_RESOURCE_DOMAIN}/{settings.CLIENT_ID}")
 
             payload = jwt.decode(
                 token,

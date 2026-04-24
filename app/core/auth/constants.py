@@ -1,3 +1,6 @@
+from app.core.config import settings
+
+
 class AzureDirectoryRole:
     """Azure AD에서 사전에 정의된 고유 ID(UUID들)"""
 
@@ -14,7 +17,6 @@ class AzureDirectoryRole:
         CLOUD_APPLICATION_ADMIN,
     ]
 
-
 class AppRoleName:
     """우리 앱(LogDoctor)의 manifest.json에 정의된 전용 역할명 및 고유 ID(UUID)"""
 
@@ -23,10 +25,22 @@ class AppRoleName:
     TENANT_ADMIN = "TenantAdmin"
     PRIVILEGED_USER = "PrivilegedUser"
 
-    # 실제 Azure Portal에 등록된 앱 역할 ID (사용자님 테넌트 기준)
-    TENANT_ADMIN_ID = "39fa03c6-33ba-47df-9f85-1623cbc3ba2f"
-    PRIVILEGED_USER_ID = "1c9c0a9d-8a41-4783-b1c6-17974ec70258"
-    PLATFORM_ADMIN_ID = "671c13fe-4b4f-4b92-bd21-6d7a0ff0eb67"
+    # 실제 Azure Portal에 등록된 앱 역할 ID (환경별 .env에서 로드)
+    @property
+    def TENANT_ADMIN_ID(self) -> str:
+        return settings.TENANT_ADMIN_ROLE_ID
+
+    @property
+    def PRIVILEGED_USER_ID(self) -> str:
+        return settings.PRIVILEGED_USER_ROLE_ID
+
+    @property
+    def PLATFORM_ADMIN_ID(self) -> str:
+        return settings.PLATFORM_ADMIN_ROLE_ID
+
+
+# 기존 코드 호환성을 위해 인스턴스로 제공
+AppRoleName = AppRoleName()
 
 
 class TokenClaim:
