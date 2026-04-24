@@ -1,3 +1,5 @@
+from fnmatch import fnmatch
+
 import httpx
 import structlog
 
@@ -139,23 +141,46 @@ class AzureArmServiceImpl(AzureArmService):
                 )
 
             permissions = resp.json().get("value", [])
-            required_action = "Microsoft.Resources/deployments/write"
 
-            can_deploy = False
-            for p in permissions:
-                actions = p.get("actions", [])
-                if (
-                    "*" in actions
-                    or required_action in actions
-                    or "Microsoft.Resources/*" in actions
-                ):
-                    can_deploy = True
-                    break
+            # 템플릿이 커스텀 역할 정의를 생성하므로, 두 가지 권한이 모두 필요합니다:
+            # 1. Microsoft.Resources/deployments/write  — 배포 자체 권한 (Contributor)
+            # 2. Microsoft.Authorization/roleDefinitions/write — 커스텀 역할 생성 권한 (Owner/UAA)
+            required_actions = [
+                "Microsoft.Resources/deployments/write",
+                "Microsoft.Authorization/roleDefinitions/write",
+            ]
 
-            if not can_deploy:
-                raise ForbiddenException(
-                    "INSUFFICIENT_SUB_PERMISSIONS|Insufficient permissions for the Azure subscription (Contributor or higher required)."
-                )
+            for required_action in required_actions:
+                action_allowed = False
+                for p in permissions:
+                    actions = p.get("actions", [])
+                    not_actions = p.get("notActions", [])
+
+                    # Azure RBAC 패턴 매칭 (대소문자 무시, 글로브 와일드카드)
+                    # 예: "Microsoft.Authorization/*/Write" 는 "Microsoft.Authorization/roleDefinitions/write"에 매칭
+                    has_action = any(
+                        fnmatch(required_action.lower(), a.lower())
+                        for a in actions
+                    )
+
+                    # notActions 패턴도 동일하게 글로브 매칭
+                    # Contributor의 notActions: ["Microsoft.Authorization/*/Write", ...]
+                    is_denied = any(
+                        fnmatch(required_action.lower(), na.lower())
+                        for na in not_actions
+                    )
+
+                    if has_action and not is_denied:
+                        action_allowed = True
+                        break
+
+                if not action_allowed:
+                    raise ForbiddenException(
+                        "INSUFFICIENT_SUB_PERMISSIONS|"
+                        "Insufficient permissions for the Azure subscription. "
+                        "Owner or User Access Administrator role is required "
+                        "to create custom role definitions."
+                    )
 
     async def list_resource_groups(
         self, access_token: str, subscription_id: str
