@@ -1,0 +1,228 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "languageVersion": "2.0",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936",
+      "templateHash": "17321376697854663302"
+    }
+  },
+  "parameters": {
+    "appDisplayName": {
+      "type": "string",
+      "defaultValue": "logdoctor",
+      "metadata": {
+        "description": "앱 표시 이름"
+      }
+    },
+    "productionOrigin": {
+      "type": "string",
+      "metadata": {
+        "description": "Static Web App 등 프런트 origin. 예: https://ashy-river-0fb38b600.7.azurestaticapps.net"
+      }
+    },
+    "authEndPath": {
+      "type": "string",
+      "defaultValue": "/tabs/home/auth-end.html",
+      "metadata": {
+        "description": "Teams auth-end 페이지 경로"
+      }
+    },
+    "appClientId": {
+      "type": "string",
+      "defaultValue": "441b4d0e-a91f-4e3a-8f88-07a492e982aa",
+      "metadata": {
+        "description": "앱 등록의 Client ID (appId). 신규 생성 시 첫 배포 후 출력값을 넣어 재배포."
+      }
+    }
+  },
+  "variables": {
+    "accessAsUserScopeId": "77cee9fc-0019-4cab-9c14-96dde2f12e12"
+  },
+  "imports": {
+    "MicrosoftGraph": {
+      "provider": "MicrosoftGraph",
+      "version": "1.0.0"
+    }
+  },
+  "resources": {
+    "entraApp": {
+      "import": "MicrosoftGraph",
+      "type": "Microsoft.Graph/applications@v1.0",
+      "properties": {
+        "uniqueName": "logdoctor",
+        "displayName": "[parameters('appDisplayName')]",
+        "signInAudience": "AzureADMultipleOrgs",
+        "groupMembershipClaims": "DirectoryRole",
+        "identifierUris": [
+          "[format('api://{0}/{1}', replace(parameters('productionOrigin'), 'https://', ''), parameters('appClientId'))]"
+        ],
+        "api": {
+          "requestedAccessTokenVersion": 2,
+          "oauth2PermissionScopes": [
+            {
+              "id": "[variables('accessAsUserScopeId')]",
+              "adminConsentDisplayName": "Access Log-Doctor",
+              "adminConsentDescription": "Allow Teams to access Log-Doctor as the signed-in user.",
+              "userConsentDisplayName": "Access Log-Doctor",
+              "userConsentDescription": "Allow Teams to access Log-Doctor as you.",
+              "isEnabled": true,
+              "type": "User",
+              "value": "access_as_user"
+            }
+          ],
+          "preAuthorizedApplications": [
+            {
+              "appId": "5e3ce6c0-2b1f-4285-8d4b-75ee78787346",
+              "delegatedPermissionIds": [
+                "[variables('accessAsUserScopeId')]"
+              ]
+            },
+            {
+              "appId": "1fec8e78-bce4-4aaf-ab1b-5451cc387264",
+              "delegatedPermissionIds": [
+                "[variables('accessAsUserScopeId')]"
+              ]
+            }
+          ]
+        },
+        "appRoles": [
+          {
+            "id": "671c13fe-4b4f-4b92-bd21-6d7a0ff0eb67",
+            "displayName": "웹앱 관리자",
+            "description": "우리 테넌트(공급사) 소속이면서 이 역할을 가지면 플랫폼 전역 접근 가능",
+            "allowedMemberTypes": [
+              "User"
+            ],
+            "isEnabled": true,
+            "value": "PlatformAdmin"
+          },
+          {
+            "id": "39fa03c6-33ba-47df-9f85-1623cbc3ba2f",
+            "displayName": "고객사 전역 관리자",
+            "description": "고객사 내에서 최고 권한을 가진 사람 (우리 앱의 전체 제어 가능)",
+            "allowedMemberTypes": [
+              "User"
+            ],
+            "isEnabled": true,
+            "value": "TenantAdmin"
+          },
+          {
+            "id": "1c9c0a9d-8a41-4783-b1c6-17974ec70258",
+            "displayName": "고객사 위임 사용자",
+            "description": "전역 관리자가 아니지만, 관리자가 명시적으로 이 앱 역할에 할당한 사용자",
+            "allowedMemberTypes": [
+              "User"
+            ],
+            "isEnabled": true,
+            "value": "PrivilegedUser"
+          }
+        ],
+        "optionalClaims": {
+          "accessToken": [
+            {
+              "name": "groups",
+              "essential": false,
+              "additionalProperties": []
+            }
+          ],
+          "idToken": [
+            {
+              "name": "groups",
+              "essential": false,
+              "additionalProperties": []
+            }
+          ],
+          "saml2Token": []
+        },
+        "requiredResourceAccess": [
+          {
+            "resourceAppId": "00000003-0000-0000-c000-000000000000",
+            "resourceAccess": [
+              {
+                "id": "e1fe6dd8-ba31-4d61-89e7-88639da4683d",
+                "type": "Scope"
+              },
+              {
+                "id": "a154be20-db9c-4678-8ab7-66f6cc099a59",
+                "type": "Scope"
+              },
+              {
+                "id": "483bed4a-2ad3-4361-a73b-c83ccdbdc53c",
+                "type": "Scope"
+              },
+              {
+                "id": "84bccea3-f856-4a8a-967b-59035e6e20c3",
+                "type": "Scope"
+              },
+              {
+                "id": "c79f8feb-a9db-4090-85f9-6d9effbaa1ae",
+                "type": "Scope"
+              },
+              {
+                "id": "5b567255-7703-4780-807c-7be8301ae99b",
+                "type": "Role"
+              },
+              {
+                "id": "a267235f-af13-44dc-8385-c1dc93023186",
+                "type": "Role"
+              }
+            ]
+          },
+          {
+            "resourceAppId": "797f4846-ba00-4fd7-ba43-dac1f8f63013",
+            "resourceAccess": [
+              {
+                "id": "41094075-9dad-400e-a0bd-54e686782033",
+                "type": "Scope"
+              }
+            ]
+          }
+        ],
+        "spa": {
+          "redirectUris": [
+            "[format('{0}/', parameters('productionOrigin'))]",
+            "[format('{0}{1}', parameters('productionOrigin'), parameters('authEndPath'))]"
+          ]
+        },
+        "web": {
+          "implicitGrantSettings": {
+            "enableIdTokenIssuance": true,
+            "enableAccessTokenIssuance": false
+          }
+        },
+        "servicePrincipalLockConfiguration": {
+          "isEnabled": false
+        }
+      }
+    },
+    "servicePrincipal": {
+      "import": "MicrosoftGraph",
+      "type": "Microsoft.Graph/servicePrincipals@v1.0",
+      "properties": {
+        "appId": "[reference('entraApp').appId]"
+      },
+      "dependsOn": [
+        "entraApp"
+      ]
+    }
+  },
+  "outputs": {
+    "clientId": {
+      "type": "string",
+      "metadata": {
+        "description": "앱 클라이언트 ID — 백엔드 CLIENT_ID 환경 변수에 주입"
+      },
+      "value": "[parameters('appClientId')]"
+    },
+    "accessAsUserScopeId": {
+      "type": "string",
+      "metadata": {
+        "description": "access_as_user scope ID — Teams manifest의 webApplicationInfo.resource 구성에 사용"
+      },
+      "value": "[variables('accessAsUserScopeId')]"
+    }
+  }
+}
