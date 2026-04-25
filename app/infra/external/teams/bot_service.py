@@ -2,6 +2,7 @@ import httpx
 import structlog
 
 from app.core.auth.services.auth_provider import TokenProvider
+from app.core.config import settings
 
 logger = structlog.get_logger()
 
@@ -60,6 +61,49 @@ class TeamsBotService:
             except Exception as e:
                 logger.error("Teams bot service error", error=str(e))
                 return False
+
+    async def send_direct_card_to_user(
+        self,
+        aad_object_id: str,
+        customer_tenant_id: str,
+        card_content: dict,
+        service_url: str | None = None,
+    ) -> bool:
+        """Bot Framework Connector API로 1:1 대화를 생성하고 Adaptive Card를 전송합니다."""
+        base_url = (service_url or self.default_service_url).rstrip("/")
+        token = await self.token_provider.get_bot_token()
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+        bot_id = f"28:{settings.CLIENT_ID}"
+        create_payload = {
+            "bot": {"id": bot_id},
+            "members": [
+                {
+                    "id": aad_object_id,
+                    "aadObjectId": aad_object_id,
+                }
+            ],
+            "channelData": {"tenant": {"id": customer_tenant_id}},
+            "isGroup": False,
+        }
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.post(
+                f"{base_url}/v3/conversations",
+                json=create_payload,
+                headers=headers,
+            )
+            if res.status_code not in (200, 201):
+                logger.error(
+                    "create_direct_conversation_failed",
+                    aad_object_id=aad_object_id,
+                    status=res.status_code,
+                    body=res.text,
+                )
+                return False
+            conversation_id = res.json().get("id")
+
+        return await self.send_adaptive_card(conversation_id, card_content, service_url)
 
     async def send_adaptive_card(
         self, channel_id: str, card_content: dict, service_url: str | None = None
