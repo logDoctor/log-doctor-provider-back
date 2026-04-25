@@ -1,4 +1,4 @@
-from fastapi import Depends, Request
+from fastapi import Depends, Query, Request
 from fastapi_restful.cbv import cbv
 
 from app.core.auth.guards import get_current_identity
@@ -171,13 +171,13 @@ class TenantRouter:
     async def list_subscription_administrators(
         self,
         subscription_id: str,
+        emails: list[str] | None = Query(None),
         identity: Identity = Depends(get_current_identity),
         use_case: ListSubscriptionAdministratorsUseCase = Depends(
             get_list_subscription_administrators_use_case
         ),
     ):
         """
-        사용자가 고른 Azure 구독의 권한자(Owner/Contributor) 중
-        앱의 지정 위임자(privileged_accounts)와 교집합인 인원만 리스트업합니다.
+        특정 Azure 구독에 대해 제공된 이메일 리스트(또는 기존 운영자)의 권한을 조회합니다.
         """
-        return await use_case.execute(identity, subscription_id)
+        return await use_case.execute(identity, subscription_id, emails=emails)
