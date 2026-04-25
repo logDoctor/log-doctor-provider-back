@@ -112,3 +112,5 @@ def get_list_subscription_administrators_use_case(
     return ListSubscriptionAdministratorsUseCase(
         tenant_repository, graph_service, azure_arm_service
     )
+
+

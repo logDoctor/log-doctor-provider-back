@@ -201,3 +201,71 @@ class NotificationService:
             total=len(tasks),
             success=success_count,
         )
+
+    async def notify_delegation_completed(
+        self,
+        tenant_id: str,
+        requester_email: str,
+        target_user_ids: list[str],
+    ) -> dict:
+        """위임 완료 후 대상 운영자에게 1:1 Teams Adaptive Card를 직접 전송합니다."""
+        tenant = await self.tenant_repository.get_by_id(tenant_id)
+        service_url = (
+            tenant.teams_info.service_url
+            if tenant and tenant.teams_info and tenant.teams_info.service_url
+            else None
+        )
+
+        if not target_user_ids and tenant:
+            accounts = tenant.privileged_accounts or []
+            target_user_ids = [
+                a.get("user_id") if isinstance(a, dict) else getattr(a, "user_id", "")
+                for a in accounts
+            ]
+            target_user_ids = [uid for uid in target_user_ids if uid]
+
+        deep_link = f"https://teams.microsoft.com/l/entity/{settings.TEAMS_APP_ID}/index"
+        card_content = {
+            "type": "AdaptiveCard",
+            "version": "1.4",
+            "body": [
+                {
+                    "type": "TextBlock",
+                    "text": "🏥 **Log Doctor 앱 사용 권한이 위임되었습니다**",
+                    "weight": "Bolder",
+                    "size": "Large",
+                    "wrap": True,
+                },
+                {
+                    "type": "TextBlock",
+                    "text": f"{requester_email}님이 Log Doctor AI 로그 분석 에이전트 배포 권한을 위임했습니다. 앱에 접속하여 배포를 진행하세요.",
+                    "wrap": True,
+                    "spacing": "Medium",
+                },
+            ],
+            "actions": [
+                {
+                    "type": "Action.OpenUrl",
+                    "title": "Log Doctor 앱 열기",
+                    "url": deep_link,
+                }
+            ],
+        }
+
+        sent, failed = [], []
+        for user_id in target_user_ids:
+            ok = await self.teams_bot_service.send_direct_card_to_user(
+                aad_object_id=user_id,
+                customer_tenant_id=tenant_id,
+                card_content=card_content,
+                service_url=service_url,
+            )
+            (sent if ok else failed).append(user_id)
+
+        logger.info(
+            "delegation_notifications_processed",
+            tenant_id=tenant_id,
+            sent=len(sent),
+            failed=len(failed),
+        )
+        return {"sent": sent, "failed": failed}
