@@ -40,7 +40,7 @@ class RegisterTenantUseCase:
 
         # 🛡️ [REFINED] 현재 로그인한 사용자(본인)는 토큰의 oid(identity.id)를 직접 사용합니다.
         # 이메일 조회를 건너뛰어 404 Resolution 에러를 원천 차단합니다.
-        resolved_accounts = [{"email": identity.email, "user_id": identity.id}]
+        resolved_accounts = [{"email": identity.email, "user_id": identity.id, "name": identity.name}]
 
         # 본인 외 추가 운영자만 Graph API로 ID를 조회합니다.
         other_emails = [
@@ -49,7 +49,7 @@ class RegisterTenantUseCase:
         ]
         
         if other_emails:
-            resolved_others = await self.graph_service.resolve_user_ids(
+            resolved_others = await self.graph_service.resolve_users(
                 tid, other_emails, sso_token=sso_token
             )
             resolved_accounts.extend(resolved_others)
@@ -66,7 +66,11 @@ class RegisterTenantUseCase:
         seen_ids = set()
         for account in resolved_accounts:
             if account["user_id"] not in seen_ids:
-                tenant.add_privileged_account(account["email"], account["user_id"])
+                tenant.add_privileged_account(
+                    account["email"], 
+                    account["user_id"], 
+                    name=account.get("name")
+                )
                 seen_ids.add(account["user_id"])
 
         # 자기 자신(최초 등록자)은 TenantAdmin, 나머지는 PrivilegedUser로 분리 할당

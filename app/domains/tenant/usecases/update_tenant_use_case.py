@@ -55,35 +55,35 @@ class UpdateTenantUseCase:
 
         if payload.privileged_accounts is not None:
             account_map = {
-                a["email"]: a["user_id"] for a in tenant_entity.privileged_accounts
+                a["email"]: (a["user_id"], a.get("name", "")) for a in tenant_entity.privileged_accounts
             }
 
             for p in payload.privileged_accounts:
                 if p.user_id:
-                    account_map[p.email] = p.user_id
+                    account_map[p.email] = (p.user_id, p.name or "")
                 elif p.email not in account_map:
-                    account_map[p.email] = None
+                    account_map[p.email] = (None, p.name or "")
 
-            account_map[identity.email] = identity.id
+            account_map[identity.email] = (identity.id, identity.name)
 
-            emails_to_resolve = [email for email, uid in account_map.items() if not uid]
+            emails_to_resolve = [email for email, (uid, name) in account_map.items() if not uid]
 
             if emails_to_resolve:
-                resolved_accounts = await self.graph_service.resolve_user_ids(
+                resolved_accounts = await self.graph_service.resolve_users(
                     tid, emails_to_resolve
                 )
                 for ra in resolved_accounts:
-                    account_map[ra["email"]] = ra["user_id"]
+                    account_map[ra["email"]] = (ra["user_id"], ra["name"])
 
-            for email, user_id in account_map.items():
-                tenant_entity.add_privileged_account(email, user_id)
+            for email, (user_id, name) in account_map.items():
+                tenant_entity.add_privileged_account(email, user_id, name=name)
 
             admin_id = identity.id
             privileged_role_id = AppRoleName.PRIVILEGED_USER_ID
 
             # 기존/신규 추가된 운영자들 중, 나(Admin)를 제외한 나머지에게 PrivilegedUser 역할 할당
             ids_to_assign = [
-                uid for uid in account_map.values() if uid and uid != admin_id
+                uid for (uid, name) in account_map.values() if uid and uid != admin_id
             ]
             if ids_to_assign:
                 await self.graph_service.assign_users_to_app(
