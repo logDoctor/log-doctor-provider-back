@@ -6,11 +6,13 @@ from pydantic import BaseModel, ConfigDict, field_validator
 class PrivilegedAccountRequest(BaseModel):
     email: str
     user_id: str | None = None
+    name: str | None = None
 
 
 class PrivilegedAccountResponse(BaseModel):
     email: str
     user_id: str
+    name: str | None = None
 
 
 
@@ -31,7 +33,7 @@ class RegisterTenantRequest(BaseModel):
         if not v:
             return v
         return [
-            {"email": item, "user_id": ""} if isinstance(item, str) else item
+            {"email": item, "user_id": "", "name": ""} if isinstance(item, str) else item
             for item in v
         ]
 

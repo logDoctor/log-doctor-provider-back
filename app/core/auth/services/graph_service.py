@@ -388,10 +388,10 @@ class GraphService:
             )
         return sp_res.json()["value"][0]["id"]
 
-    async def resolve_user_ids(
+    async def resolve_users(
         self, tenant_id: str, emails: list[str], sso_token: str | None = None
     ) -> list[dict[str, str]]:
-        """이메일 리스트를 받아서 [{"email": "...", "user_id": "..."}] 리스트를 반환합니다."""
+        """이메일 리스트를 받아서 [{"email": "...", "user_id": "...", "name": "..."}] 리스트를 반환합니다."""
         if not emails:
             return []
 
@@ -404,17 +404,21 @@ class GraphService:
         async with httpx.AsyncClient(headers=headers, timeout=10.0) as client:
             tasks = []
             for email in emails:
-                tasks.append(self._resolve_user_id(client, tenant_id, email, sso_token))
+                tasks.append(self._fetch_user_details(client, tenant_id, email, sso_token))
 
-            resolved_ids = await asyncio.gather(*tasks, return_exceptions=True)
+            resolved_details = await asyncio.gather(*tasks, return_exceptions=True)
 
             results = []
-            for email, res in zip(emails, resolved_ids, strict=True):
-                if isinstance(res, str):
-                    results.append({"email": email, "user_id": res})
+            for email, res in zip(emails, resolved_details, strict=True):
+                if isinstance(res, dict):
+                    results.append({
+                        "email": email, 
+                        "user_id": res["id"],
+                        "name": res.get("displayName") or ""
+                    })
                 else:
                     logger.error(
-                        "Failed to resolve mandatory user id",
+                        "Failed to resolve mandatory user details",
                         email=email,
                         error=str(res),
                     )
@@ -425,6 +429,31 @@ class GraphService:
                     )
 
         return results
+
+    async def _fetch_user_details(
+        self, client: httpx.AsyncClient, tenant_id: str, user_identifier: str, sso_token: str | None = None
+    ) -> dict:
+        """사용자 상세 정보를 조회합니다."""
+        # UUID면 direct lookup, 아니면 filter (이메일)
+        if re.match(r"^[0-9a-fA-F-]{36}$", user_identifier):
+            url = f"{self.base_url}/users/{user_identifier}"
+        else:
+            url = f"{self.base_url}/users/{user_identifier}"
+
+        user_res = await client.get(url, params={"$select": "id,displayName,mail,userPrincipalName"})
+        if user_res.status_code == 403:
+            raise UnauthorizedException("CONSENT_REQUIRED|Insufficient Graph API permissions.")
+        if user_res.status_code != 200:
+            raise UnauthorizedException(f"NOT_FOUND|User not found: {user_identifier}")
+        
+        return user_res.json()
+
+    async def resolve_user_ids(
+        self, tenant_id: str, emails: list[str], sso_token: str | None = None
+    ) -> list[dict[str, str]]:
+        """이메일 리스트를 받아서 [{"email": "...", "user_id": "..."}] 리스트를 반환합니다. (호환용)"""
+        users = await self.resolve_users(tenant_id, emails, sso_token)
+        return [{"email": u["email"], "user_id": u["user_id"]} for u in users]
 
     async def _resolve_user_id(
         self, client: httpx.AsyncClient, tenant_id: str, user_identifier: str, sso_token: str | None = None

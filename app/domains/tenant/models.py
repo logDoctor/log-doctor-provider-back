@@ -32,9 +32,9 @@ class Tenant:
     tenant_id: str
     created_at: str
     registered_at: str | None = None  # 실제 사용자 등록 시점
-    privileged_accounts: list[dict[str, str]] = field(
+    privileged_accounts: list[dict[str, str | None]] = field(
         default_factory=list
-    )  # [{"email": "...", "user_id": "..."}]
+    )  # [{"email": "...", "user_id": "...", "name": "..."}]
     teams_info: TeamsInfo | None = None
 
     @staticmethod
@@ -73,14 +73,16 @@ class Tenant:
             "teams_info": self.teams_info.to_dict() if self.teams_info else None,
         }
 
-    def add_privileged_account(self, email: str, user_id: str) -> None:
+    def add_privileged_account(self, email: str, user_id: str, name: str | None = None) -> None:
         # 이메일 기준으로 중복 체크 및 업데이트
         for account in self.privileged_accounts:
             if account["email"] == email:
                 account["user_id"] = user_id
+                if name:
+                    account["name"] = name
                 return
 
-        self.privileged_accounts.append({"email": email, "user_id": user_id})
+        self.privileged_accounts.append({"email": email, "user_id": user_id, "name": name})
 
     def remove_privileged_account(self, email: str) -> None:
         self.privileged_accounts = [
