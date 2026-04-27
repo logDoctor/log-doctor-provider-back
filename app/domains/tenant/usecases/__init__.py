@@ -1,3 +1,4 @@
+from .get_team_detail_use_case import GetTeamDetailUseCase
 from .get_subscription_setup_info_use_case import GetSubscriptionSetupInfoUseCase
 from .get_subscriptions_use_case import GetSubscriptionsUseCase
 from .get_tenant_status_use_case import GetTenantStatusUseCase

@@ -19,6 +19,7 @@ from .repositories import (
     TenantRepository,
 )
 from .usecases import (
+    GetTeamDetailUseCase,
     GetSubscriptionSetupInfoUseCase,
     GetSubscriptionsUseCase,
     GetTenantStatusUseCase,
@@ -82,6 +83,12 @@ async def get_update_tenant_use_case(
 ) -> UpdateTenantUseCase:
     """Returns an UpdateTenantUseCase instance with injected dependencies."""
     return UpdateTenantUseCase(tenant_repository, graph_service)
+
+
+def get_get_team_detail_use_case(
+    graph_service: GraphService = Depends(get_graph_service),
+) -> GetTeamDetailUseCase:
+    return GetTeamDetailUseCase(graph_service)
 
 
 def get_list_channels_use_case(

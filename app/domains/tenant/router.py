@@ -6,6 +6,7 @@ from app.core.auth.models import Identity
 from app.core.routing import APIRouter
 
 from .dependencies import (
+    get_get_team_detail_use_case,
     get_list_channels_use_case,
     get_list_joined_teams_use_case,
     get_list_resource_groups_use_case,
@@ -27,6 +28,7 @@ from .schemas import (
     UpdateTenantResponse,
 )
 from .usecases import (
+    GetTeamDetailUseCase,
     GetSubscriptionSetupInfoUseCase,
     GetSubscriptionsUseCase,
     GetTenantStatusUseCase,
@@ -99,6 +101,18 @@ class TenantRouter:
         현재 팀 내의 알림 수신 가능한 채널 목록을 조회합니다.
         """
         return await use_case.execute(identity.tenant_id, team_id, sso_token=identity.sso_token)
+
+    @router.get("/me/teams/{team_id}")
+    async def get_team_detail(
+        self,
+        team_id: str,
+        identity: Identity = Depends(get_current_identity),
+        use_case: GetTeamDetailUseCase = Depends(get_get_team_detail_use_case),
+    ):
+        """
+        특정 팀의 상세 정보 및 우리 앱의 설치 여부를 조회합니다.
+        """
+        return await use_case.execute(identity, team_id)
 
     @router.get("/me/teams", response_model=list[dict])
     async def list_available_teams(
