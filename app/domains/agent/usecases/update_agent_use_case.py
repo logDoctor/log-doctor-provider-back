@@ -1,6 +1,7 @@
 import structlog
 
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import ConflictException, NotFoundException
+from app.domains.agent.models import AgentStatus
 from app.domains.agent.repository import AgentRepository
 from app.domains.agent.schemas import AgentResponse, UpdateAgentResponse
 
@@ -23,8 +24,15 @@ class UpdateAgentUseCase:
         agent = await self.agent_repository.get_by_id(tenant_id=tenant_id, id=agent_id)
         if not agent:
             raise NotFoundException(f"Agent {agent_id} not found.")
+        if agent.is_deleted():
+            raise ConflictException(f"Cannot update a deleted agent: {agent_id}")
 
-        agent.update(teams_info=teams_info, status=status)
+        agent_status = AgentStatus(status) if status else None
+
+        if agent_status == AgentStatus.ACTIVE:
+            agent.restore_to_active()
+
+        agent.update(teams_info=teams_info, status=agent_status)
 
         await self.agent_repository.upsert_agent(agent)
 

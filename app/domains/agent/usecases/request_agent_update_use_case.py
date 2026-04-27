@@ -5,7 +5,6 @@ from app.core.auth.models import Identity
 from app.core.exceptions import (
     ConflictException,
     ForbiddenException,
-    InternalServerException,
     NotFoundException,
 )
 from app.core.interfaces.azure_arm import AzureArmService
@@ -43,6 +42,8 @@ class RequestAgentUpdateUseCase:
         agent = await self.agent_repository.get_by_id(tenant_id=tenant_id, id=agent_id)
         if not agent:
             raise NotFoundException(f"Agent {agent_id} not found.")
+        if agent.is_deleted():
+            raise ConflictException(f"Cannot update a deleted agent: {agent_id}")
 
         package = await self.package_repository.get_by_version(target_version)
 
@@ -75,6 +76,11 @@ class RequestAgentUpdateUseCase:
 
         arm_token = await get_obo_access_token(identity.sso_token)
 
+        agent.start_update()
+
+        success = True
+        message = f"Update request successful. ({agent.version} -> {package.version})"
+
         try:
             await self.azure_arm_service.update_function_app_settings(
                 access_token=arm_token,
@@ -88,19 +94,19 @@ class RequestAgentUpdateUseCase:
         except ForbiddenException as e:
             # check_deployment_permission 외에 ARM 내부 호출 중 403이 나온 경우
             logger.error("Agent update forbidden", agent_id=agent_id, error=str(e))
-            raise ForbiddenException(
-                "AGENT_MANAGE_FORBIDDEN|You do not have sufficient permissions to update this agent. Azure Contributor role is required."
-            ) from e
+            agent.mark_update_failed()
+            success = False
+            message = "AGENT_MANAGE_FORBIDDEN|You do not have sufficient permissions to update this agent. Azure Contributor role is required."
         except Exception as e:
             logger.error("Agent update failed", agent_id=agent_id, error=str(e))
-            raise InternalServerException(
-                f"Failed to request agent update: {str(e)}"
-            ) from e
+            agent.mark_update_failed()
+            success = False
+            message = f"Failed to request agent update: {str(e)}"
 
-        agent.start_update()
         await self.agent_repository.upsert_agent(agent)
 
         return RequestAgentUpdateResponse(
-            message=f"Update request successful. ({agent.version} -> {package.version})",
+            message=message,
             agent=AgentResponse.model_validate(agent),
+            success=success,
         )

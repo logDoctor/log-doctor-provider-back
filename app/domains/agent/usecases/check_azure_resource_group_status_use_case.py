@@ -2,7 +2,7 @@ import structlog
 
 from app.core.auth import get_obo_access_token
 from app.core.auth.models import Identity
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import ConflictException, NotFoundException
 from app.core.interfaces.azure_arm import AzureArmService
 from app.domains.agent.repository import AgentRepository
 from app.domains.agent.schemas import CheckAzureResourceGroupStatusResponse
@@ -27,11 +27,11 @@ class CheckAzureResourceGroupStatusUseCase:
         OBO 토큰을 사용하여 사용자의 권한으로 리소스 그룹 존재 여부를 확인합니다.
         DB 상태를 변경하지 않습니다.
         """
-        agent = await self.repository.get_by_id(
-            tenant_id=tenant_id, id=agent_id
-        )
+        agent = await self.repository.get_by_id(tenant_id=tenant_id, id=agent_id)
         if not agent:
             raise NotFoundException(f"Agent {agent_id} not found.")
+        if agent.is_deleted():
+            raise ConflictException(f"Agent {agent_id} is already deleted.")
 
         arm_token = await get_obo_access_token(identity.sso_token)
 
