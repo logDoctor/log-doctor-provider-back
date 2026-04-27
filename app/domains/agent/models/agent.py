@@ -146,6 +146,9 @@ class Agent:
         teams_info: dict | None = None,
     ) -> list[str]:
         """필드 정보를 업데이트하고 변경된 필드 목록을 반환합니다."""
+        if self.is_deleted():
+            raise ConflictException("Cannot update a deleted agent.")
+
         updated_fields = []
         if version and self.version != version:
             self.version = version
@@ -167,6 +170,8 @@ class Agent:
 
     def start_update(self):
         """에이전트 업데이트 상태로 전환합니다."""
+        if self.is_deleted():
+            raise ConflictException("Cannot update a deleted agent.")
         self.status = AgentStatus.UPDATING
         self.update_started_at = datetime.now(UTC).isoformat()
 
@@ -210,6 +215,16 @@ class Agent:
     def mark_deactivate_failed(self):
         """Azure 리소스 삭제가 실패하여 비활성화에 실패했음을 표시합니다."""
         self.status = AgentStatus.DEACTIVATE_FAILED
+
+    def mark_update_failed(self):
+        """OTA 업데이트(Azure 리소스 갱신)가 실패했음을 표시합니다."""
+        self.status = AgentStatus.UPDATING_FAILED
+
+    def restore_to_active(self):
+        """실패 상태(업데이트/삭제 실패)의 에이전트를 다시 활성 상태로 강제 복구합니다."""
+        if self.status in [AgentStatus.UPDATING_FAILED, AgentStatus.DEACTIVATE_FAILED]:
+            self.status = AgentStatus.ACTIVE
+            self.update_started_at = None
 
     def is_deactivating(self) -> bool:
         """에이전트가 비활성화 중인지 확인합니다."""
