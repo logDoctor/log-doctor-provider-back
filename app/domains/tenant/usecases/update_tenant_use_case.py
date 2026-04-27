@@ -47,6 +47,13 @@ class UpdateTenantUseCase:
                 tenant_entity.teams_info = TeamsInfo()
 
             if payload.teams_info.team_id is not None:
+                # [AUTO-INSTALL OPTIMIZATION] 팀 ID가 실제로 변경된 경우에만 설치 상태를 확인하여 지연 시간(7초) 방지
+                if not tenant_entity.teams_info or payload.teams_info.team_id != tenant_entity.teams_info.team_id:
+                    await self.graph_service.ensure_app_installed_in_team(
+                        tenant_id=tid,
+                        team_id=payload.teams_info.team_id,
+                        sso_token=identity.sso_token
+                    )
                 tenant_entity.teams_info.team_id = payload.teams_info.team_id
             if payload.teams_info.channel_id is not None:
                 tenant_entity.teams_info.channel_id = payload.teams_info.channel_id
