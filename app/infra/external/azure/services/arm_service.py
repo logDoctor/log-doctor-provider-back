@@ -26,6 +26,7 @@ class AzureArmServiceImpl(AzureArmService):
     async def delete_resource_group(
         self, access_token: str, subscription_id: str, resource_group_name: str
     ) -> None:
+        access_token = await self.token_provider.get_obo_token(access_token)
         url = (
             f"/subscriptions/{subscription_id}"
             f"/resourcegroups/{resource_group_name}"
@@ -46,18 +47,15 @@ class AzureArmServiceImpl(AzureArmService):
     async def check_resource_group_exists(
         self, access_token: str, subscription_id: str, resource_group_name: str
     ) -> bool:
+        access_token = await self.token_provider.get_obo_token(access_token)
         url = (
-            f"https://management.azure.com"
             f"/subscriptions/{subscription_id}"
             f"/resourcegroups/{resource_group_name}"
             f"?api-version={self.api_version}"
         )
 
-        async with httpx.AsyncClient() as client:
-            response = await client.head(
-                url,
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
+        async with self.arm_client.get_client(access_token) as client:
+            response = await client.head(url)
             return response.status_code != 404
 
     async def update_function_app_settings(
@@ -68,8 +66,8 @@ class AzureArmServiceImpl(AzureArmService):
         function_app_name: str,
         settings_to_update: dict[str, str],
     ) -> None:
+        access_token = await self.token_provider.get_obo_token(access_token)
         list_url = (
-            f"https://management.azure.com"
             f"/subscriptions/{subscription_id}"
             f"/resourceGroups/{resource_group_name}"
             f"/providers/Microsoft.Web/sites/{function_app_name}"
@@ -77,11 +75,8 @@ class AzureArmServiceImpl(AzureArmService):
             f"?api-version=2022-03-01"
         )
 
-        async with httpx.AsyncClient() as client:
-            list_response = await client.post(
-                list_url,
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
+        async with self.arm_client.get_client(access_token) as client:
+            list_response = await client.post(list_url)
 
             if list_response.status_code != 200:
                 raise Exception(
@@ -92,7 +87,6 @@ class AzureArmServiceImpl(AzureArmService):
             current_settings.update(settings_to_update)
 
             put_url = (
-                f"https://management.azure.com"
                 f"/subscriptions/{subscription_id}"
                 f"/resourceGroups/{resource_group_name}"
                 f"/providers/Microsoft.Web/sites/{function_app_name}"
@@ -102,10 +96,6 @@ class AzureArmServiceImpl(AzureArmService):
 
             put_response = await client.put(
                 put_url,
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json",
-                },
                 json={"properties": current_settings},
             )
 
@@ -159,8 +149,7 @@ class AzureArmServiceImpl(AzureArmService):
                     # Azure RBAC 패턴 매칭 (대소문자 무시, 글로브 와일드카드)
                     # 예: "Microsoft.Authorization/*/Write" 는 "Microsoft.Authorization/roleDefinitions/write"에 매칭
                     has_action = any(
-                        fnmatch(required_action.lower(), a.lower())
-                        for a in actions
+                        fnmatch(required_action.lower(), a.lower()) for a in actions
                     )
 
                     # notActions 패턴도 동일하게 글로브 매칭
@@ -250,7 +239,11 @@ class AzureArmServiceImpl(AzureArmService):
             return data.get("value", [])
 
     async def get_function_app_principal_id(
-        self, access_token: str, subscription_id: str, resource_group_name: str, function_app_name: str
+        self,
+        access_token: str,
+        subscription_id: str,
+        resource_group_name: str,
+        function_app_name: str,
     ) -> str | None:
         """Function App의 Managed Identity (Principal ID)를 조회합니다."""
         access_token = await self.token_provider.get_obo_token(access_token)
@@ -305,6 +298,6 @@ class AzureArmServiceImpl(AzureArmService):
                 "azure_delete_role_assignment_failed",
                 status=response.status_code,
                 body=response.text,
-                role_assignment_id=role_assignment_id
+                role_assignment_id=role_assignment_id,
             )
             raise Exception(f"Failed to delete role assignment: {response.status_code}")
