@@ -1,5 +1,7 @@
 from fastapi import Depends
 
+from app.core.auth.dependencies import get_graph_service
+from app.core.auth.services.graph_service import GraphService
 from app.core.interfaces.azure_arm import AzureArmService
 from app.domains.package.dependencies import get_agent_package_repository
 from app.domains.package.repository import AgentPackageRepository
@@ -96,8 +98,9 @@ def get_tenant_admin_uninstall_use_case(
 
 def get_update_agent_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
+    graph_service: GraphService = Depends(get_graph_service),
 ) -> UpdateAgentUseCase:
-    return UpdateAgentUseCase(repository)
+    return UpdateAgentUseCase(repository, graph_service)
 
 from .repository import AgentIssueRepository, AzureAgentIssueRepository
 from .usecases.report_agent_issue import ReportAgentIssueUseCase

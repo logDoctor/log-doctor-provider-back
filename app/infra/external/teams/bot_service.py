@@ -103,10 +103,19 @@ class TeamsBotService:
                 return False
             conversation_id = res.json().get("id")
 
-        return await self.send_adaptive_card(conversation_id, card_content, service_url)
+        return await self.send_adaptive_card(
+            channel_id=conversation_id, 
+            card_content=card_content, 
+            service_url=service_url,
+            tenant_id=customer_tenant_id
+        )
 
     async def send_adaptive_card(
-        self, channel_id: str, card_content: dict, service_url: str | None = None
+        self, 
+        channel_id: str, 
+        card_content: dict, 
+        service_url: str | None = None,
+        tenant_id: str | None = None
     ) -> bool:
         """
         Adaptive Card 형태의 미려한 알림을 발송합니다.
@@ -130,6 +139,10 @@ class TeamsBotService:
             ],
         }
 
+        # 🚀 멀티테넌트 봇의 경우 채널 전송 시 tenantId가 누락되면 실패할 수 있습니다.
+        if tenant_id:
+            payload["channelData"] = {"tenant": {"id": tenant_id}}
+
         async with httpx.AsyncClient(headers=headers) as client:
             try:
                 res = await client.post(url, json=payload)
@@ -146,9 +159,10 @@ class TeamsBotService:
                     channel_id=channel_id,
                     code=res.status_code,
                     text=res.text,
+                    tenant_id=tenant_id
                 )
                 return False
             except Exception as e:
-                logger.error("Teams adaptive card service error", error=str(e))
+                logger.error("Teams adaptive card service error", error=str(e), channel_id=channel_id)
                 return False
 

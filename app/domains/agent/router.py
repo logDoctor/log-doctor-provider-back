@@ -108,6 +108,7 @@ class AgentRouter:
         에이전트 속성을 업데이트합니다. (운영자 전용)
         """
         return await use_case.execute(
+            identity=admin_identity,
             tenant_id=tenant_id,
             agent_id=client_agent_id,
             status=request.status,

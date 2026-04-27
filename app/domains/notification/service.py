@@ -86,6 +86,15 @@ class NotificationService:
         tasks = []
         recipient_count = 0
 
+        # 🚀 [FIX] en-US, ko-KR 등 다양한 언어 형식을 'en', 'ko'로 정규화하여 처리합니다.
+        lang_code = (language or "ko").split("-")[0].lower()
+        t = TRANSLATIONS.get(lang_code, TRANSLATIONS["en"])
+        translated_summary = t.get(summary, summary)
+
+        context_json = json.dumps({"subEntityId": report_id})
+        encoded_context = urllib.parse.quote(context_json)
+        deep_link = f"https://teams.microsoft.com/l/entity/{settings.TEAMS_APP_ID}/index?subEntityId={report_id}&context={encoded_context}"
+
         # 1. 채널 알림 구성 (Teams Bot 사용 - Adaptive Card)
         if (
             teams_info
@@ -104,15 +113,6 @@ class NotificationService:
                     "service_url", "https://smba.trafficmanager.net/kr/"
                 )
             )
-
-            context_json = json.dumps({"subEntityId": report_id})
-            encoded_context = urllib.parse.quote(context_json)
-            deep_link = f"https://teams.microsoft.com/l/entity/{settings.TEAMS_APP_ID}/index?subEntityId={report_id}&context={encoded_context}"
-
-            # 🚀 [FIX] en-US, ko-KR 등 다양한 언어 형식을 'en', 'ko'로 정규화하여 처리합니다.
-            lang_code = (language or "ko").split("-")[0].lower()
-            t = TRANSLATIONS.get(lang_code, TRANSLATIONS["en"])
-            translated_summary = t.get(summary, summary)
 
             adaptive_card_payload = {
                 "type": "AdaptiveCard",
@@ -145,6 +145,7 @@ class NotificationService:
                     channel_id,
                     adaptive_card_payload,
                     service_url=service_url,
+                    tenant_id=tenant_id,
                 )
             )
             recipient_count += 1
