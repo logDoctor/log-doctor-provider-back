@@ -57,16 +57,22 @@ class ReportRouter:
         self,
         agent_id: str,
         is_initial: bool | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        resolution_status: str | None = None,
         cursor: str | None = None,
         limit: int = 20,
         identity: Identity = Depends(get_current_identity),
         use_case: ListReportsUseCase = Depends(get_list_reports_use_case),
     ):
-        """조건에 맞는 리포트 목록을 조회합니다. (페이지네이션 지원)"""
+        """조건에 맞는 리포트 목록을 조회합니다. (페이지네이션 및 필터링 지원)"""
         return await use_case.execute(
             identity=identity,
             agent_id=agent_id,
             is_initial=is_initial,
+            start_date=start_date,
+            end_date=end_date,
+            resolution_status=resolution_status,
             cursor=cursor,
             limit=limit,
         )

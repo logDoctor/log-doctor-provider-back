@@ -13,6 +13,9 @@ class ListReportsUseCase:
         identity: Identity,
         agent_id: str,
         is_initial: bool | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        resolution_status: str | None = None,
         cursor: str | None = None,
         limit: int = 20,
     ) -> ReportListResponse:
@@ -21,6 +24,9 @@ class ListReportsUseCase:
             tenant_id=identity.tenant_id,
             agent_id=agent_id,
             is_initial=is_initial,
+            start_date=start_date,
+            end_date=end_date,
+            resolution_status=resolution_status,
             cursor=cursor,
             limit=limit,
         )
