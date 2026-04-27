@@ -30,6 +30,9 @@ class ReportRepository(ABC):
         tenant_id: str,
         agent_id: str,
         is_initial: bool | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        resolution_status: str | None = None,
         cursor: str | None = None,
         limit: int = 20,
     ) -> tuple[list[Report], str | None]:
@@ -70,6 +73,9 @@ class AzureReportRepository(ReportRepository):
         tenant_id: str,
         agent_id: str,
         is_initial: bool | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        resolution_status: str | None = None,
         cursor: str | None = None,
         limit: int = 20,
     ) -> tuple[list[Report], str | None]:
@@ -82,6 +88,21 @@ class AzureReportRepository(ReportRepository):
         if is_initial is not None:
             query += " AND c.is_initial = @is_initial"
             parameters.append({"name": "@is_initial", "value": is_initial})
+
+        if start_date:
+            query += " AND c.created_at >= @start_date"
+            parameters.append({"name": "@start_date", "value": start_date})
+
+        if end_date:
+            query += " AND c.created_at <= @end_date"
+            parameters.append({"name": "@end_date", "value": end_date})
+
+        if resolution_status == "HEALTHY":
+            query += " AND (IS_DEFINED(c.summary) AND c.summary.detected_diagnosis_count = 0)"
+        elif resolution_status == "UNRESOLVED":
+            query += " AND (IS_DEFINED(c.summary) AND c.summary.detected_diagnosis_count > 0 AND c.summary.resolved_diagnosis_count < c.summary.detected_diagnosis_count)"
+        elif resolution_status == "RESOLVED":
+            query += " AND (IS_DEFINED(c.summary) AND c.summary.detected_diagnosis_count > 0 AND c.summary.resolved_diagnosis_count = c.summary.detected_diagnosis_count)"
 
         # 최신순 정렬
         query += " ORDER BY c.created_at DESC"
