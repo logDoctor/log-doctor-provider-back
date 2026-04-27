@@ -565,3 +565,117 @@ class GraphService:
 
         return global_admins
 
+    async def check_app_installation_status(
+        self, tenant_id: str, team_id: str, sso_token: str | None = None
+    ) -> bool:
+        """특정 팀에 우리 앱이 실제로 설치되어 있는지 확인합니다."""
+        try:
+            token = await self._get_graph_token(tenant_id, sso_token)
+            app_external_id = settings.TEAMS_APP_ID
+            
+            async with httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"}, timeout=10.0) as client:
+                # 카탈로그를 거치지 않고, 팀에 설치된 앱 목록을 직접 조회 (사이드로드된 앱 지원 및 권한 이슈 우회)
+                check_url = f"{self.base_url}/teams/{team_id}/installedApps"
+                res = await client.get(check_url, params={"$expand": "teamsApp"})
+                
+                if res.status_code == 200:
+                    installed_apps = res.json().get("value", [])
+                    logger.info(f"[DEBUG] Checking team {team_id} for app {app_external_id}. Total apps: {len(installed_apps)}")
+                    
+                    for app in installed_apps:
+                        teams_app = app.get("teamsApp", {})
+                        e_id = teams_app.get("externalId")
+                        i_id = teams_app.get("id")
+                        name = teams_app.get("displayName")
+                        
+                        logger.info(f"[DEBUG] Installed App -> Name: {name}, externalId: {e_id}, id: {i_id}")
+                        
+                        # 두 필드 모두 체크 시도
+                        if e_id == app_external_id or i_id == app_external_id:
+                            logger.info(f"[DEBUG] Match found! Name: {name}")
+                            return True
+                    return False
+                else:
+                    logger.warning(f"Failed to check installed apps for team {team_id}: {res.status_code} {res.text}")
+                    return False
+        except Exception as e:
+            logger.error(f"Exception in check_app_installation_status: {str(e)}")
+            return False
+
+    async def ensure_app_installed_in_team(
+        self, tenant_id: str, team_id: str, sso_token: str | None = None
+    ) -> bool:
+        """
+        특정 팀에 우리 앱이 설치되어 있는지 확인하고, 없으면 자동으로 설치합니다.
+        TeamsAppInstallation.ReadWriteSelfForTeam 권한이 필요합니다.
+        """
+        token = await self._get_graph_token(tenant_id, sso_token)
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        
+        app_external_id = settings.TEAMS_APP_ID
+        if not app_external_id:
+            logger.warning("TEAMS_APP_ID is not configured. Skipping auto-installation.")
+            return False
+
+        async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
+            try:
+                # 1. 팀에 설치된 앱 목록을 $expand=teamsApp으로 직접 조회
+                #    (카탈로그 조회를 먼저 하지 않아 사이드로드 앱도 지원, 속도 개선)
+                check_url = f"{self.base_url}/teams/{team_id}/installedApps"
+                res = await client.get(check_url, params={"$expand": "teamsApp"})
+                
+                if res.status_code == 200:
+                    installed_apps = res.json().get("value", [])
+                    for app in installed_apps:
+                        teams_app = app.get("teamsApp", {})
+                        if teams_app.get("externalId") == app_external_id:
+                            logger.info(f"[GraphService] App already installed in team {team_id} (externalId match)")
+                            return True
+
+                # 2. 설치되어 있지 않음 → 카탈로그에서 내부 ID를 조회하여 설치 시도
+                catalog_url = f"{self.base_url}/appCatalogs/teamsApps"
+                catalog_res = await client.get(catalog_url, params={"$filter": f"externalId eq '{app_external_id}'"})
+                
+                if catalog_res.status_code != 200:
+                    logger.error(f"[GraphService] Failed to fetch app catalog: {catalog_res.status_code}")
+                    return False
+                
+                catalog_apps = catalog_res.json().get("value", [])
+                if not catalog_apps:
+                    logger.error(
+                        f"[GraphService] App {app_external_id} not found in catalog. "
+                        "Cannot auto-install. Please publish the app to your organization's catalog first "
+                        "(Teams Admin Center → Manage Apps → Upload)."
+                    )
+                    return False
+                
+                teams_app_internal_id = catalog_apps[0].get("id")
+                logger.info(f"[GraphService] Found catalog ID: {teams_app_internal_id}, attempting install...")
+
+                # 3. 설치 진행
+                payload = {
+                    "teamsApp@odata.bind": f"{self.base_url}/appCatalogs/teamsApps/{teams_app_internal_id}"
+                }
+                install_res = await client.post(check_url, json=payload)
+                
+                if install_res.status_code in [201, 204]:
+                    logger.info(f"[GraphService] Successfully installed app in team {team_id}")
+                    return True
+                elif install_res.status_code == 409:
+                    logger.info("[GraphService] App already exists (409 Conflict)")
+                    return True
+                else:
+                    logger.error(
+                        "[GraphService] Installation failed",
+                        status=install_res.status_code,
+                        response=install_res.text,
+                    )
+                    return False
+                    
+            except Exception as e:
+                logger.error(f"[GraphService] unexpected_error: {str(e)}", team_id=team_id)
+                return False
+
