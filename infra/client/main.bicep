@@ -29,14 +29,12 @@ param publisherClientId string = ''
 @metadata({ hidden: true })
 param publisherPrincipalId string = ''
 
-var uniqueId = uniqueString(subscription().subscriptionId, subscription().tenantId)
+var uniqueId = uniqueString(subscription().id)
 var storageAccountName = 'st${toLower(uniqueId)}'
 var functionAppName = '${appName}-${env}-fn-${uniqueId}'
 var appServicePlanName = '${appName}-${env}-plan'
-// deployment().name은 Azure Portal에서 매 배포마다 자동 생성되는 고유 문자열입니다.
-// 예: 'Microsoft.Template-20260318175426' → uniqueString으로 변환하여 8자리 고유 접미사를 만듭니다.
-var openAiDeploymentSuffix = substring(uniqueString(deployment().name), 0, 8)
-var openAiAccountName = '${appName}-${env}-openai-${uniqueId}-${openAiDeploymentSuffix}'
+// deployment().name 대신 고정된 uniqueId를 사용하여 재배포 시에도 리소스 이름이 유지되도록 합니다.
+var openAiAccountName = '${appName}-${env}-openai-${uniqueId}'
 
 // 1. 리소스 그룹 생성 (구독 수준)
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
@@ -80,14 +78,15 @@ output resourceGroupId string = rg.id
 @description('생성할 커스텀 역할의 이름')
 param scannerRoleName string = 'LogDoctor Diagnostic Scanner (Minimal)'
 
-// 역할 이름이 변경되지 않는 한 동일한 GUID를 유지하도록 설정
-var scannerRoleDefName = guid(subscription().id, scannerRoleName)
+// 테넌트 내 역할 이름 중복 방지를 위해 구독별 고유 접미사를 추가합니다.
+var actualScannerRoleName = '${scannerRoleName} (${uniqueId})'
+var scannerRoleDefName = guid(subscription().id, actualScannerRoleName)
 
 // 4. 커스텀 역할 정의 (구독 레벨)
 resource customScannerRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' = {
   name: scannerRoleDefName
   properties: {
-    roleName: scannerRoleName
+    roleName: actualScannerRoleName
     description: 'LogDoctor 진단을 위한 최소 읽기 권한 (인프라, 로그 쿼리, 진단 설정)'
     type: 'customRole'
     permissions: [
