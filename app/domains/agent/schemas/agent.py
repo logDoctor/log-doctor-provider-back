@@ -17,6 +17,7 @@ class HandshakeAgentRequest(BaseModel):
 
 class HandshakeAgentResponse(BaseModel):
     message: str
+    status: str | None = None
 
 
 class AgentCommandMessage(BaseModel):
