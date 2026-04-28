@@ -16,6 +16,13 @@ from .agent import (
     UpdateAgentResponse,
 )
 from .issue import AgentIssueCreate, AgentIssuesCreate
+from .schedule import (
+    CreateScheduleRequest,
+    ScheduleListResponse,
+    ScheduleResponse,
+    TriggerScheduledRunResponse,
+    UpdateScheduleRequest,
+)
 
 __all__ = [
     "HandshakeAgentRequest",
@@ -35,4 +42,9 @@ __all__ = [
     "TenantAdminUninstallResponse",
     "AgentIssueCreate",
     "AgentIssuesCreate",
+    "CreateScheduleRequest",
+    "UpdateScheduleRequest",
+    "ScheduleResponse",
+    "ScheduleListResponse",
+    "TriggerScheduledRunResponse",
 ]

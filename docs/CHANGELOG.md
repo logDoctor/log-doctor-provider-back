@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-04-29
+
+### 정기 검진 (Scheduled Diagnosis) 기능 추가
+
+1. **Schedule 도메인 신설** — Agent aggregate 하위에 `Schedule` 엔티티 및 레포지토리 추가 (`app/domains/agent/models/schedule.py`, `app/domains/agent/schedule_repository.py`).
+2. **`POST /agents/{agent_id}/trigger-scheduled-run`** — 에이전트 타이머 폴링용 엔드포인트 신설. ETag 낙관적 잠금으로 다중 레플리카 중복 실행 방지.
+3. **Schedule CRUD 엔드포인트** — `GET/POST /agents/{agent_id}/schedules`, `PATCH/DELETE /agents/{agent_id}/schedules/{id}` (운영자 전용).
+4. **ETag 잠금 → Report 생성 → Queue push** 순서로 트랜잭션 설계 (R1: 중복 실행 방지 > 누락 허용).
+5. **알림 분기** — `triggered_by.startswith("scheduled:")` 시 "⏰ 정기 검진 완료" 타이틀 적용 (`notification/service.py`).
+6. **ROUTINE/MANUAL 필터 수정** — `triggered_by = "scheduled:{id}"`를 ROUTINE으로 분류 (`report/repository.py`).
+7. **에이전트 삭제 cleanup** — `DeactivateAgentUseCase`, `ConfirmAgentDeletionUseCase`, `TenantAdminUninstallUseCase` 에서 연관 스케줄 `disable_by_agent()` 호출.
+8. **`schedules` Cosmos 컨테이너 추가** — `scripts/setup_db.py` 업데이트.
+9. **아키텍처 문서** — `docs/scheduled-diagnosis-architecture.md` 작성.
+
+---
+
 ## 2026-02-17
 
 ### Yoonsik-Shin

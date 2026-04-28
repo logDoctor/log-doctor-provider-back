@@ -22,6 +22,7 @@ CONTAINERS = [
     {"id": "tenants", "partition_key": "/tenant_id"},
     {"id": "agents", "partition_key": "/tenant_id"},
     {"id": "packages", "partition_key": "/partitionKey"},
+    {"id": "schedules", "partition_key": "/agent_id"},
 ]
 
 logger = structlog.get_logger()

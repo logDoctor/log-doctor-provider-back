@@ -100,6 +100,17 @@ resource agentIssuesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabase
   }
 }
 
+resource schedulesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
+  parent: cosmosDb
+  name: 'schedules'
+  properties: {
+    resource: {
+      id: 'schedules'
+      partitionKey: { paths: [ '/agent_id' ], kind: 'Hash' }
+    }
+  }
+}
+
 output cosmosAccountId string = cosmosAccount.id
 output cosmosAccountName string = cosmosAccount.name
 output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint

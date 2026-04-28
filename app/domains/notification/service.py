@@ -18,6 +18,7 @@ logger = structlog.get_logger()
 TRANSLATIONS = {
     "ko": {
         "analysis_completed_title": "📊 **진단 분석 완료 (Log Doctor)**",
+        "scheduled_analysis_completed_title": "⏰ **정기 검진 완료 (Log Doctor)**",
         "report_id_label": "진단 보고서 ID",
         "summary_label": "요약",
         "view_details_btn": "보고서 상세보기",
@@ -27,6 +28,7 @@ TRANSLATIONS = {
     },
     "en": {
         "analysis_completed_title": "📊 **Analysis Complete (Log Doctor)**",
+        "scheduled_analysis_completed_title": "⏰ **Scheduled Diagnosis Complete (Log Doctor)**",
         "report_id_label": "Report ID",
         "summary_label": "Summary",
         "view_details_btn": "View Report Details",
@@ -64,6 +66,7 @@ class NotificationService:
         summary: str,
         agent_id: str | None = None,
         language: str = "ko",
+        triggered_by: str | None = None,
     ):
         """분석이 완료되었음을 채널 게시 및 활동 피드를 통해 알립니다."""
         tenant = await self.tenant_repository.get_by_id(tenant_id)
@@ -90,6 +93,9 @@ class NotificationService:
         lang_code = (language or "ko").split("-")[0].lower()
         t = TRANSLATIONS.get(lang_code, TRANSLATIONS["en"])
         translated_summary = t.get(summary, summary)
+
+        is_scheduled = bool(triggered_by and triggered_by.startswith("scheduled:"))
+        title_key = "scheduled_analysis_completed_title" if is_scheduled else "analysis_completed_title"
 
         context_json = json.dumps({"subEntityId": report_id})
         encoded_context = urllib.parse.quote(context_json)
@@ -120,7 +126,7 @@ class NotificationService:
                 "body": [
                     {
                         "type": "TextBlock",
-                        "text": t["analysis_completed_title"],
+                        "text": t[title_key],
                         "weight": "Bolder",
                         "size": "Large",
                     },

@@ -113,9 +113,15 @@ class AzureReportRepository(ReportRepository):
             parameters.append({"name": "@triggered_by", "value": triggered_by})
 
         if diagnosis_type == "ROUTINE":
-            query += " AND (NOT IS_DEFINED(c.triggered_by) OR c.triggered_by = null OR c.triggered_by = 'System')"
+            query += (
+                " AND (NOT IS_DEFINED(c.triggered_by) OR c.triggered_by = null"
+                " OR c.triggered_by = 'System' OR STARTSWITH(c.triggered_by, 'scheduled:'))"
+            )
         elif diagnosis_type == "MANUAL":
-            query += " AND (IS_DEFINED(c.triggered_by) AND c.triggered_by != null AND c.triggered_by != 'System')"
+            query += (
+                " AND (IS_DEFINED(c.triggered_by) AND c.triggered_by != null"
+                " AND c.triggered_by != 'System' AND NOT STARTSWITH(c.triggered_by, 'scheduled:'))"
+            )
 
         # 최신순 정렬
         query += " ORDER BY c.created_at DESC"
