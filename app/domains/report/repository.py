@@ -33,6 +33,8 @@ class ReportRepository(ABC):
         start_date: str | None = None,
         end_date: str | None = None,
         resolution_status: str | None = None,
+        triggered_by: str | None = None,
+        diagnosis_type: str | None = None,
         cursor: str | None = None,
         limit: int = 20,
     ) -> tuple[list[Report], str | None]:
@@ -76,6 +78,8 @@ class AzureReportRepository(ReportRepository):
         start_date: str | None = None,
         end_date: str | None = None,
         resolution_status: str | None = None,
+        triggered_by: str | None = None,
+        diagnosis_type: str | None = None,
         cursor: str | None = None,
         limit: int = 20,
     ) -> tuple[list[Report], str | None]:
@@ -103,6 +107,15 @@ class AzureReportRepository(ReportRepository):
             query += " AND (IS_DEFINED(c.summary) AND c.summary.detected_diagnosis_count > 0 AND c.summary.resolved_diagnosis_count < c.summary.detected_diagnosis_count)"
         elif resolution_status == "RESOLVED":
             query += " AND (IS_DEFINED(c.summary) AND c.summary.detected_diagnosis_count > 0 AND c.summary.resolved_diagnosis_count = c.summary.detected_diagnosis_count)"
+
+        if triggered_by:
+            query += " AND CONTAINS(LOWER(c.triggered_by), LOWER(@triggered_by))"
+            parameters.append({"name": "@triggered_by", "value": triggered_by})
+
+        if diagnosis_type == "ROUTINE":
+            query += " AND (NOT IS_DEFINED(c.triggered_by) OR c.triggered_by = null OR c.triggered_by = 'System')"
+        elif diagnosis_type == "MANUAL":
+            query += " AND (IS_DEFINED(c.triggered_by) AND c.triggered_by != null AND c.triggered_by != 'System')"
 
         # 최신순 정렬
         query += " ORDER BY c.created_at DESC"

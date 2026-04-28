@@ -16,6 +16,8 @@ class ListReportsUseCase:
         start_date: str | None = None,
         end_date: str | None = None,
         resolution_status: str | None = None,
+        triggered_by: str | None = None,
+        diagnosis_type: str | None = None,
         cursor: str | None = None,
         limit: int = 20,
     ) -> ReportListResponse:
@@ -27,6 +29,8 @@ class ListReportsUseCase:
             start_date=start_date,
             end_date=end_date,
             resolution_status=resolution_status,
+            triggered_by=triggered_by,
+            diagnosis_type=diagnosis_type,
             cursor=cursor,
             limit=limit,
         )
