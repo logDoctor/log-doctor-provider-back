@@ -1,7 +1,3 @@
-
-from .dependencies import get_report_agent_issue_use_case
-from .schemas import AgentIssueCreate, AgentIssuesCreate
-from .usecases.report_agent_issue import ReportAgentIssueUseCase
 from fastapi import Depends, Request
 from fastapi_restful.cbv import cbv
 
@@ -12,12 +8,18 @@ from app.core.routing import APIRouter
 from .dependencies import (
     get_check_azure_resource_group_status_use_case,
     get_confirm_agent_deletion_use_case,
+    get_create_schedule_use_case,
     get_deactivate_agent_use_case,
+    get_delete_schedule_use_case,
     get_handshake_agent_use_case,
+    get_list_schedules_use_case,
     get_platform_admin_list_agents_use_case,
+    get_report_agent_issue_use_case,
     get_request_agent_update_use_case,
     get_tenant_user_list_agents_use_case,
+    get_trigger_scheduled_run_use_case,
     get_update_agent_use_case,
+    get_update_schedule_use_case,
 )
 from .schemas import (
     CheckAzureResourceGroupStatusResponse,
@@ -28,20 +30,31 @@ from .schemas import (
     PlatformAdminListAgentsResponse,
     RequestAgentUpdateRequest,
     RequestAgentUpdateResponse,
+    ScheduleListResponse,
+    ScheduleResponse,
     TenantUserListAgentsResponse,
+    TriggerScheduledRunResponse,
     UpdateAgentRequest,
     UpdateAgentResponse,
 )
+from .schemas.issue import AgentIssuesCreate
+from .schemas.schedule import CreateScheduleRequest, UpdateScheduleRequest
 from .usecases import (
     CheckAzureResourceGroupStatusUseCase,
     ConfirmAgentDeletionUseCase,
+    CreateScheduleUseCase,
     DeactivateAgentUseCase,
+    DeleteScheduleUseCase,
     HandshakeAgentUseCase,
+    ListSchedulesUseCase,
     PlatformAdminListAgentsUseCase,
     RequestAgentUpdateUseCase,
     TenantUserListAgentsUseCase,
+    TriggerScheduledRunUseCase,
     UpdateAgentUseCase,
+    UpdateScheduleUseCase,
 )
+from .usecases.report_agent_issue import ReportAgentIssueUseCase
 
 router = APIRouter(tags=["Agents"])
 
@@ -104,9 +117,7 @@ class AgentRouter:
         admin_identity: Identity = Depends(admin_verify_guard),
         use_case: UpdateAgentUseCase = Depends(get_update_agent_use_case),
     ):
-        """
-        에이전트 속성을 업데이트합니다. (운영자 전용)
-        """
+        """에이전트 속성을 업데이트합니다. (운영자 전용)"""
         return await use_case.execute(
             identity=admin_identity,
             tenant_id=tenant_id,
@@ -114,7 +125,6 @@ class AgentRouter:
             status=request.status,
             teams_info=request.teams_info,
         )
-
 
     @router.post(
         "/{client_agent_id}/confirm-deletion",
@@ -178,30 +188,97 @@ class AgentRouter:
             target_version=request.target_version,
         )
 
-
-    @router.post("/handshake", response_model=HandshakeAgentResponse)
+    @router.put("/handshake", response_model=HandshakeAgentResponse)
     async def handshake(
         self,
         request: HandshakeAgentRequest,
         req: Request,
         use_case: HandshakeAgentUseCase = Depends(get_handshake_agent_use_case),
     ):
-        """
-        에이전트가 최초 실행되거나 재시작될 때 호출하여 자신의 정보를 등록/갱신합니다.
-        """
+        """에이전트가 최초 실행되거나 재시작될 때 호출하여 자신의 정보를 등록/갱신합니다."""
         client_ip = req.client.host if req.client else "unknown"
         return await use_case.execute(request, client_ip)
+
+
+@router.post("/{agent_id}/trigger-scheduled-run", response_model=TriggerScheduledRunResponse)
+async def trigger_scheduled_run(
+    agent_id: str,
+    tenant_id: str,
+    use_case: TriggerScheduledRunUseCase = Depends(get_trigger_scheduled_run_use_case),
+):
+    """
+    에이전트 타이머가 30분마다 호출하여 실행 시각이 된 정기 검진을 트리거합니다.
+    실행 시각이 된 스케줄이 있으면 Report를 생성하고 진단 큐에 메시지를 push합니다.
+    """
+    return await use_case.execute(tenant_id=tenant_id, agent_id=agent_id)
+
 
 @router.post("/{agent_id}/issues", status_code=201)
 async def report_agent_issue(
     agent_id: str,
     request: AgentIssuesCreate,
-    tenant_id: str = "default_tenant", # 임시 헤더/컨텍스트 파싱 처리 유도
-    use_case: ReportAgentIssueUseCase = Depends(get_report_agent_issue_use_case)
+    tenant_id: str = "default_tenant",
+    use_case: ReportAgentIssueUseCase = Depends(get_report_agent_issue_use_case),
 ):
     issues = await use_case.execute(tenant_id=tenant_id, agent_id=agent_id, request=request.items)
     return {
-        "message": "Issues reported successfully", 
+        "message": "Issues reported successfully",
         "count": len(issues),
-        "ids": [issue.id for issue in issues]
+        "ids": [issue.id for issue in issues],
     }
+
+
+# --- Schedule sub-resource routes ---
+
+@router.get("/{agent_id}/schedules", response_model=ScheduleListResponse)
+async def list_schedules(
+    agent_id: str,
+    admin_identity: Identity = Depends(admin_verify_guard),
+    use_case: ListSchedulesUseCase = Depends(get_list_schedules_use_case),
+):
+    """에이전트에 등록된 정기 검진 스케줄 목록을 조회합니다. (운영자 전용)"""
+    schedules = await use_case.execute(identity=admin_identity, agent_id=agent_id)
+    return ScheduleListResponse(items=schedules)
+
+
+@router.post("/{agent_id}/schedules", response_model=ScheduleResponse, status_code=201)
+async def create_schedule(
+    agent_id: str,
+    request: CreateScheduleRequest,
+    admin_identity: Identity = Depends(admin_verify_guard),
+    use_case: CreateScheduleUseCase = Depends(get_create_schedule_use_case),
+):
+    """에이전트에 정기 검진 스케줄을 추가합니다. (운영자 전용)"""
+    return await use_case.execute(identity=admin_identity, agent_id=agent_id, request=request)
+
+
+@router.patch("/{agent_id}/schedules/{schedule_id}", response_model=ScheduleResponse)
+async def update_schedule(
+    agent_id: str,
+    schedule_id: str,
+    request: UpdateScheduleRequest,
+    admin_identity: Identity = Depends(admin_verify_guard),
+    use_case: UpdateScheduleUseCase = Depends(get_update_schedule_use_case),
+):
+    """정기 검진 스케줄을 수정합니다. (운영자 전용)"""
+    return await use_case.execute(
+        identity=admin_identity,
+        agent_id=agent_id,
+        schedule_id=schedule_id,
+        request=request,
+    )
+
+
+@router.delete("/{agent_id}/schedules/{schedule_id}", status_code=204)
+async def delete_schedule(
+    agent_id: str,
+    schedule_id: str,
+    admin_identity: Identity = Depends(admin_verify_guard),
+    use_case: DeleteScheduleUseCase = Depends(get_delete_schedule_use_case),
+):
+    """정기 검진 스케줄을 삭제합니다. (운영자 전용)"""
+    await use_case.execute(
+        identity=admin_identity,
+        agent_id=agent_id,
+        schedule_id=schedule_id,
+    )
