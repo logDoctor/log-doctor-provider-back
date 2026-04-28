@@ -1,7 +1,7 @@
 from app.core.auth.constants import AppRoleName
 from app.core.auth.models import Identity
 from app.core.auth.services.graph_service import GraphService
-from app.core.exceptions import ConflictException
+from app.core.exceptions import BadRequestException, ConflictException
 from app.domains.tenant.models import TeamsInfo, Tenant
 from app.domains.tenant.schemas import (
     PrivilegedAccountRequest,
@@ -38,21 +38,22 @@ class RegisterTenantUseCase:
                 "TENANT_ALREADY_REGISTERED|This tenant is already registered."
             )
 
-        # 🛡️ [REFINED] 현재 로그인한 사용자(본인)는 토큰의 oid(identity.id)를 직접 사용합니다.
-        # 이메일 조회를 건너뛰어 404 Resolution 에러를 원천 차단합니다.
-        resolved_accounts = [{"email": identity.email, "user_id": identity.id, "name": identity.name}]
+        # 🛡️ [REFINED] 이제 백엔드에서 자동으로 본인을 추가하지 않습니다.
+        # 프론트엔드에서 전달받은 privileged_accounts 리스트만 사용합니다.
+        resolved_accounts = []
 
-        # 본인 외 추가 운영자만 Graph API로 ID를 조회합니다.
-        other_emails = [
-            a.email for a in privileged_accounts 
-            if privileged_accounts and a.email.lower() != identity.email.lower()
-        ]
+        # 모든 운영자를 Graph API로 ID를 조회합니다.
+        emails_to_resolve = [a.email for a in privileged_accounts] if privileged_accounts else []
         
-        if other_emails:
-            resolved_others = await self.graph_service.resolve_users(
-                tid, other_emails, sso_token=sso_token
+        if emails_to_resolve:
+            resolved_accounts = await self.graph_service.resolve_users(
+                tid, emails_to_resolve, sso_token=sso_token
             )
-            resolved_accounts.extend(resolved_others)
+
+        if not resolved_accounts:
+            raise BadRequestException(
+                "MISSING_PRIVILEGED_ACCOUNTS|At least one privileged account is required for tenant registration."
+            )
 
         tenant = Tenant.register(tid)
         if teams_info:

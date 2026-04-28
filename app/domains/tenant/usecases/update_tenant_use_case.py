@@ -3,7 +3,7 @@ import structlog
 from app.core.auth.constants import AppRoleName
 from app.core.auth.models import Identity
 from app.core.auth.services.graph_service import GraphService
-from app.core.exceptions import NotFoundException, UnauthorizedException
+from app.core.exceptions import BadRequestException, NotFoundException, UnauthorizedException
 from app.domains.tenant.models import TeamsInfo
 from app.domains.tenant.schemas import (
     TeamsInfoPayload,
@@ -71,7 +71,7 @@ class UpdateTenantUseCase:
                 elif p.email not in account_map:
                     account_map[p.email] = (None, p.name or "")
 
-            account_map[identity.email] = (identity.id, identity.name)
+            # account_map[identity.email] = (identity.id, identity.name)  # 🛡️ [REFINED] 이제 자동으로 추가하지 않음
 
             emails_to_resolve = [email for email, (uid, name) in account_map.items() if not uid]
 
@@ -84,6 +84,11 @@ class UpdateTenantUseCase:
 
             for email, (user_id, name) in account_map.items():
                 tenant_entity.add_privileged_account(email, user_id, name=name)
+
+            if not tenant_entity.privileged_accounts:
+                raise BadRequestException(
+                    "MISSING_PRIVILEGED_ACCOUNTS|Tenant must have at least one privileged account."
+                )
 
             admin_id = identity.id
             privileged_role_id = AppRoleName.PRIVILEGED_USER_ID
