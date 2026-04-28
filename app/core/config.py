@@ -1,4 +1,5 @@
 import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ENV 또는 TEAMSFX_ENV 환경 변수에 따라 .env.dev 또는 .env.prod를 로드합니다.
@@ -7,6 +8,7 @@ env = os.getenv("ENV") or os.getenv("TEAMSFX_ENV") or "dev"
 env_file = f".env.{env}"
 
 print(f">>> Loading environment settings from: {env_file}")
+
 
 class Settings(BaseSettings):
     # Authentication Settings
@@ -39,6 +41,10 @@ class Settings(BaseSettings):
     PRIVILEGED_USER_ROLE_ID: str | None = None
     PLATFORM_ADMIN_ROLE_ID: str | None = None
 
+    # Support Settings
+    SUPPORT_CHANNEL_ID: str | None = None
+    SUPPORT_SERVICE_URL: str = "https://smba.trafficmanager.net/kr/"
+
     # Storage Settings
     # STORAGE_TYPE: filesystem | blob
     STORAGE_TYPE: str = "filesystem"
@@ -60,15 +66,17 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         """기본 주소와 환경별 주소를 병합하여 최종 허용 목록을 반환합니다."""
         origins = list(self.COMMON_CORS_ORIGINS)
-        
+
         if isinstance(self.BACKEND_CORS_ORIGINS, str):
             if self.BACKEND_CORS_ORIGINS:
                 # 쉼표로 구분된 문자열을 리스트로 변환
-                extra_origins = [o.strip() for o in self.BACKEND_CORS_ORIGINS.split(",") if o.strip()]
+                extra_origins = [
+                    o.strip() for o in self.BACKEND_CORS_ORIGINS.split(",") if o.strip()
+                ]
                 origins.extend(extra_origins)
         elif isinstance(self.BACKEND_CORS_ORIGINS, list):
             origins.extend(self.BACKEND_CORS_ORIGINS)
-            
+
         return list(set(origins))  # 중복 제거
 
     model_config = SettingsConfigDict(env_file=env_file, extra="ignore")
