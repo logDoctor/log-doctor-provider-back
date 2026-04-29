@@ -4,7 +4,7 @@ from azure.cosmos.aio import ContainerProxy
 
 from app.infra.db.cosmos import cosmos_repository
 
-from .models.schedule import Schedule
+from ..models.schedule import Schedule
 
 
 class ScheduleRepository(ABC):

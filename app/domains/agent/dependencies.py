@@ -6,18 +6,26 @@ from app.core.interfaces.azure_arm import AzureArmService
 from app.core.interfaces.azure_queue import AzureQueueService
 from app.domains.package.dependencies import get_agent_package_repository
 from app.domains.package.repository import AgentPackageRepository
-from app.domains.report.dependencies import get_report_repository
-from app.domains.report.repository import ReportRepository
+from app.domains.report.repositories import get_report_repository
+from app.domains.report.repositories.report import ReportRepository
 from app.domains.tenant.dependencies import (
     get_subscription_repository,
     get_tenant_repository,
 )
 from app.domains.tenant.repositories import SubscriptionRepository, TenantRepository
-from app.infra.db.cosmos import CosmosDB
-from app.infra.external.azure.dependencies import get_azure_arm_service, get_azure_queue_service
+from app.infra.external.azure.dependencies import (
+    get_azure_arm_service,
+    get_azure_queue_service,
+)
 
-from .repository import AgentIssueRepository, AgentRepository, AzureAgentIssueRepository, AzureAgentRepository
-from .schedule_repository import AzureScheduleRepository, ScheduleRepository
+from .repositories import (
+    AgentIssueRepository,
+    AgentRepository,
+    ScheduleRepository,
+    get_agent_issue_repository,
+    get_agent_repository,
+    get_schedule_repository,
+)
 from .usecases import (
     CheckAzureResourceGroupStatusUseCase,
     ConfirmAgentDeletionUseCase,
@@ -37,21 +45,6 @@ from .usecases import (
 from .usecases.report_agent_issue import ReportAgentIssueUseCase
 
 
-async def get_agent_repository() -> AgentRepository:
-    container = await CosmosDB.get_container("agents")
-    return AzureAgentRepository(container)
-
-
-async def get_schedule_repository() -> ScheduleRepository:
-    container = await CosmosDB.get_container("schedules")
-    return AzureScheduleRepository(container)
-
-
-async def get_agent_issue_repository() -> AgentIssueRepository:
-    container = await CosmosDB.get_container("agent_issues")
-    return AzureAgentIssueRepository(container)
-
-
 def get_handshake_agent_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
     tenant_repository: TenantRepository = Depends(get_tenant_repository),
@@ -61,7 +54,9 @@ def get_handshake_agent_use_case(
 
 def get_tenant_user_list_agents_use_case(
     repository: AgentRepository = Depends(get_agent_repository),
-    subscription_repository: SubscriptionRepository = Depends(get_subscription_repository),
+    subscription_repository: SubscriptionRepository = Depends(
+        get_subscription_repository
+    ),
     tenant_repository: TenantRepository = Depends(get_tenant_repository),
     azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
 ) -> TenantUserListAgentsUseCase:
@@ -132,6 +127,7 @@ def get_report_agent_issue_use_case(
 
 # --- Schedule factories ---
 
+
 def get_list_schedules_use_case(
     schedule_repository: ScheduleRepository = Depends(get_schedule_repository),
     agent_repository: AgentRepository = Depends(get_agent_repository),
@@ -144,7 +140,9 @@ def get_create_schedule_use_case(
     agent_repository: AgentRepository = Depends(get_agent_repository),
     azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
 ) -> CreateScheduleUseCase:
-    return CreateScheduleUseCase(schedule_repository, agent_repository, azure_arm_service)
+    return CreateScheduleUseCase(
+        schedule_repository, agent_repository, azure_arm_service
+    )
 
 
 def get_update_schedule_use_case(
@@ -152,7 +150,9 @@ def get_update_schedule_use_case(
     agent_repository: AgentRepository = Depends(get_agent_repository),
     azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
 ) -> UpdateScheduleUseCase:
-    return UpdateScheduleUseCase(schedule_repository, agent_repository, azure_arm_service)
+    return UpdateScheduleUseCase(
+        schedule_repository, agent_repository, azure_arm_service
+    )
 
 
 def get_delete_schedule_use_case(

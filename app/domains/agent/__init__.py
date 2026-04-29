@@ -1,5 +1,4 @@
 from .dependencies import (
-    get_agent_repository,
     get_check_azure_resource_group_status_use_case,
     get_confirm_agent_deletion_use_case,
     get_deactivate_agent_use_case,
@@ -9,6 +8,7 @@ from .dependencies import (
     get_tenant_admin_uninstall_use_case,
     get_tenant_user_list_agents_use_case,
 )
+from .repositories import get_agent_repository
 from .usecases import (
     CheckAzureResourceGroupStatusUseCase,
     ConfirmAgentDeletionUseCase,
