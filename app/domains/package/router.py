@@ -7,13 +7,20 @@ from app.core.routing import APIRouter
 
 from .dependencies import (
     get_download_package_use_case,
+    get_generate_upload_url_use_case,
     get_list_packages_use_case,
     get_package_use_case,
     get_upload_package_use_case,
 )
-from .schemas import GetPackageResponse, ListPackagesResponse, UploadPackageResponse
+from .schemas import (
+    GenerateUploadUrlResponse,
+    GetPackageResponse,
+    ListPackagesResponse,
+    UploadPackageResponse,
+)
 from .usecases import (
     DownloadPackageUseCase,
+    GeneratePackageUploadUrlUseCase,
     GetPackageUseCase,
     ListPackagesUseCase,
     UploadPackageUseCase,
@@ -52,6 +59,22 @@ class PackageAdminRouter:
     ):
         """에이전트 Zip 패키지를 업로드합니다. (운영자 전용)"""
         return await upload_use_case.execute(file)
+
+    @router.post(
+        "/upload-url",
+        response_model=GenerateUploadUrlResponse,
+        dependencies=[Depends(admin_verify_guard)],
+    )
+    async def generate_upload_url(
+        self,
+        filename: str,
+        use_case: GeneratePackageUploadUrlUseCase = Depends(
+            get_generate_upload_url_use_case
+        ),
+    ):
+        """대용량 에이전트 패키지 업로드를 위한 SAS URL을 생성합니다. (운영자 전용)"""
+        url = await use_case.execute(filename)
+        return GenerateUploadUrlResponse(url=url, filename=filename)
 
     @router.get(
         "/",

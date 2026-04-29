@@ -7,10 +7,15 @@ from .repository import (
 )
 from .usecases import (
     DownloadPackageUseCase,
+    GeneratePackageUploadUrlUseCase,
     GetPackageUseCase,
     ListPackagesUseCase,
     UploadPackageUseCase,
 )
+
+
+def get_generate_upload_url_use_case() -> GeneratePackageUploadUrlUseCase:
+    return GeneratePackageUploadUrlUseCase(get_agent_package_repository())
 
 
 def get_agent_package_repository() -> AgentPackageRepository:
