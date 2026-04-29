@@ -43,8 +43,8 @@ class CosmosDB:
                 settings.COSMOS_ENDPOINT,
                 credential=credential,
                 connection_verify=connection_verify,
-                # Docker 환경에서 에뮬레이터가 127.0.0.1로 리다이렉트하는 것을 방지
-                enable_endpoint_discovery=False,
+                # Docker 환경에서 에뮬레이터가 127.0.0.1로 리다이렉트하는 것을 방지하기 위해 http인 경우만 False
+                enable_endpoint_discovery=not settings.COSMOS_ENDPOINT.startswith("http://"),
             )
         return cls._client
 
@@ -69,10 +69,11 @@ class CosmosDB:
         """실제 DB에 접속하여 연결이 유효한지 검증합니다."""
         try:
             client = await cls.get_client()
-            # 데이터베이스 목록을 조회하여 연결 상태를 확인
-            async for _ in client.list_databases():
-                break
-            logger.info("Successfully connected to Cosmos DB")
+            # [ROOT CAUSE FIX] list_databases()는 Managed Identity의 Data Contributor 권한으로 허용되지 않아 Hang이 발생할 수 있음.
+            # 데이터베이스 클라이언트를 가져와서 메타데이터를 읽는 read()는 데이터 권한으로 수행 가능.
+            db_client = client.get_database_client(settings.COSMOS_DATABASE)
+            await db_client.read()
+            logger.info("Successfully connected to Cosmos DB", database=settings.COSMOS_DATABASE)
         except Exception as e:
             logger.error("Failed to connect to Cosmos DB", error=str(e))
             raise

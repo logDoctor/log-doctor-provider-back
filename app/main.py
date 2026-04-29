@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
         await CosmosDB.validate_connection()
         # Azure Managed Identity/Credential 초기화 (Discovery 과정 수행)
         await get_azure_credential()
-        
+
         logger.info("Startup pre-warming completed successfully")
     except Exception as e:
         print(f"!!! STARTUP ERROR: {e} !!!", file=sys.stderr)

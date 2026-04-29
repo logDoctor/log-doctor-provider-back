@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "1427970485534590009"
+      "templateHash": "14650941013081619864"
     }
   },
   "parameters": {
@@ -73,8 +73,8 @@
     "storageAccountName": "[format('st{0}', toLower(variables('uniqueId')))]",
     "functionAppName": "[format('{0}-{1}-fn-{2}', parameters('appName'), variables('env'), variables('uniqueId'))]",
     "appServicePlanName": "[format('{0}-{1}-plan', parameters('appName'), variables('env'))]",
-    "actualScannerRoleName": "[format('{0} ({1})', parameters('scannerRoleName'), variables('uniqueId'))]",
     "openAiAccountName": "[format('{0}-{1}-openai-{2}', parameters('appName'), variables('env'), variables('uniqueId'))]",
+    "actualScannerRoleName": "[format('{0} ({1})', parameters('scannerRoleName'), variables('uniqueId'))]",
     "scannerRoleDefName": "[guid(subscription().id, variables('actualScannerRoleName'))]"
   },
   "resources": [
