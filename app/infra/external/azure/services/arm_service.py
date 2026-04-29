@@ -301,3 +301,39 @@ class AzureArmServiceImpl(AzureArmService):
                 role_assignment_id=role_assignment_id,
             )
             raise Exception(f"Failed to delete role assignment: {response.status_code}")
+
+    async def list_resources_by_tag(
+        self, access_token: str, subscription_id: str, tag_name: str, tag_value: str
+    ) -> list[dict]:
+        """특정 태그가 포함된 리소스 목록을 조회합니다."""
+        access_token = await self.token_provider.get_obo_token(access_token)
+
+        # ARM API: 리소스 목록 조회 시 필터 사용
+        # api-version 2021-04-01 supports tag filtering and createdTime expansion
+        url = (
+            f"https://management.azure.com"
+            f"/subscriptions/{subscription_id}"
+            f"/resources"
+            f"?$filter=tagName eq '{tag_name}' and tagValue eq '{tag_value}'"
+            f"&$expand=createdTime"
+            f"&api-version=2021-04-01"
+        )
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(url, headers=headers)
+
+            if response.status_code != 200:
+                self.logger.error(
+                    "azure_list_resources_by_tag_failed",
+                    status=response.status_code,
+                    body=response.text,
+                    tag_name=tag_name,
+                    tag_value=tag_value,
+                )
+                raise Exception(
+                    f"Failed to list resources by tag: {response.status_code}"
+                )
+
+            data = response.json()
+            return data.get("value", [])

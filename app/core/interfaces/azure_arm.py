@@ -53,7 +53,11 @@ class AzureArmService(ABC):
 
     @abstractmethod
     async def get_function_app_principal_id(
-        self, access_token: str, subscription_id: str, resource_group_name: str, function_app_name: str
+        self,
+        access_token: str,
+        subscription_id: str,
+        resource_group_name: str,
+        function_app_name: str,
     ) -> str | None:
         """Function App의 Managed Identity (Principal ID)를 조회합니다."""
         pass
@@ -63,4 +67,11 @@ class AzureArmService(ABC):
         self, access_token: str, role_assignment_id: str
     ) -> None:
         """특정 역할 할당(Role Assignment)을 삭제합니다."""
+        pass
+
+    @abstractmethod
+    async def list_resources_by_tag(
+        self, access_token: str, subscription_id: str, tag_name: str, tag_value: str
+    ) -> list[dict]:
+        """특정 태그가 포함된 리소스 목록을 조회합니다."""
         pass

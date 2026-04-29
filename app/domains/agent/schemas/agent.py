@@ -119,3 +119,26 @@ class TenantAdminUninstallResponse(BaseModel):
     action: str
     tenant_id: str | None = None
     results: list[dict] | None = None
+
+
+class DiscoveredAzureResource(BaseModel):
+    storage_account_name: str
+    resource_group: str
+    location: str
+    is_registered: bool
+    resource_id: str
+    created_at: str | None = None
+
+
+class DiscoverAgentResourcesResponse(BaseModel):
+    items: list[DiscoveredAzureResource]
+
+
+class PokeAgentRequest(BaseModel):
+    storage_account_name: str
+    subscription_id: str
+
+
+class PokeAgentResponse(BaseModel):
+    success: bool
+    message: str

@@ -42,6 +42,13 @@ class AgentRepository(ABC):
         """에이전트 목록과 전체 개수를 조회합니다."""
         pass
 
+    @abstractmethod
+    async def get_agent_by_subscription(
+        self, subscription_id: str, statuses: list[AgentStatus] | None = None
+    ) -> Agent | None:
+        """특정 구독에서 에이전트 1건을 조회합니다. (여러 상태 필터 선택 가능)"""
+        pass
+
 
 # 2. Implementation (Cosmos)
 @cosmos_repository(map_to=Agent)
@@ -161,3 +168,28 @@ class AzureAgentRepository(AgentRepository):
         agents = [Agent.from_dict(item) async for item in items]
 
         return agents, total_count
+
+    async def get_agent_by_subscription(
+        self, subscription_id: str, statuses: list[AgentStatus] | None = None
+    ) -> Agent | None:
+        query = "SELECT * FROM c WHERE c.subscription_id = @sub_id"
+        parameters = [
+            {"name": "@sub_id", "value": subscription_id},
+        ]
+
+        if statuses:
+            status_params = []
+            for i, status in enumerate(statuses):
+                param_name = f"@status_{i}"
+                status_params.append(param_name)
+                parameters.append({"name": param_name, "value": status.value})
+
+            query += f" AND c.status IN ({', '.join(status_params)})"
+
+        # 구독 기반 조회는 테넌트(PartitionKey)에 관계없이 수행해야 하므로 cross-partition query 사용
+        items = self.container.query_items(
+            query=query, parameters=parameters, enable_cross_partition_query=True
+        )
+        async for item in items:
+            return Agent.from_dict(item)
+        return None

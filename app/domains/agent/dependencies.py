@@ -32,9 +32,11 @@ from .usecases import (
     CreateScheduleUseCase,
     DeactivateAgentUseCase,
     DeleteScheduleUseCase,
+    DiscoverAgentResourcesUseCase,
     HandshakeAgentUseCase,
     ListSchedulesUseCase,
     PlatformAdminListAgentsUseCase,
+    PokeAgentUseCase,
     RequestAgentUpdateUseCase,
     TenantAdminUninstallUseCase,
     TenantUserListAgentsUseCase,
@@ -173,3 +175,16 @@ def get_trigger_scheduled_run_use_case(
         agent_repository,
         azure_queue_service,
     )
+
+
+def get_discover_agent_resources_use_case(
+    azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
+    agent_repository: AgentRepository = Depends(get_agent_repository),
+) -> DiscoverAgentResourcesUseCase:
+    return DiscoverAgentResourcesUseCase(azure_arm_service, agent_repository)
+
+
+def get_poke_agent_use_case(
+    azure_queue_service: AzureQueueService = Depends(get_azure_queue_service),
+) -> PokeAgentUseCase:
+    return PokeAgentUseCase(azure_queue_service)

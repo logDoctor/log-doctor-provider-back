@@ -11,9 +11,11 @@ from .dependencies import (
     get_create_schedule_use_case,
     get_deactivate_agent_use_case,
     get_delete_schedule_use_case,
+    get_discover_agent_resources_use_case,
     get_handshake_agent_use_case,
     get_list_schedules_use_case,
     get_platform_admin_list_agents_use_case,
+    get_poke_agent_use_case,
     get_report_agent_issue_use_case,
     get_request_agent_update_use_case,
     get_tenant_user_list_agents_use_case,
@@ -25,9 +27,12 @@ from .schemas import (
     CheckAzureResourceGroupStatusResponse,
     ConfirmAgentDeletionResponse,
     DeactivateAgentResponse,
+    DiscoverAgentResourcesResponse,
     HandshakeAgentRequest,
     HandshakeAgentResponse,
     PlatformAdminListAgentsResponse,
+    PokeAgentRequest,
+    PokeAgentResponse,
     RequestAgentUpdateRequest,
     RequestAgentUpdateResponse,
     ScheduleListResponse,
@@ -45,9 +50,11 @@ from .usecases import (
     CreateScheduleUseCase,
     DeactivateAgentUseCase,
     DeleteScheduleUseCase,
+    DiscoverAgentResourcesUseCase,
     HandshakeAgentUseCase,
     ListSchedulesUseCase,
     PlatformAdminListAgentsUseCase,
+    PokeAgentUseCase,
     RequestAgentUpdateUseCase,
     TenantUserListAgentsUseCase,
     TriggerScheduledRunUseCase,
@@ -199,8 +206,46 @@ class AgentRouter:
         client_ip = req.client.host if req.client else "unknown"
         return await use_case.execute(request, client_ip)
 
+    @router.get("/azure-resources", response_model=DiscoverAgentResourcesResponse)
+    async def discover_agent_resources(
+        self,
+        subscription_id: str,
+        identity: Identity = Depends(get_current_identity),
+        use_case: DiscoverAgentResourcesUseCase = Depends(
+            get_discover_agent_resources_use_case
+        ),
+    ):
+        """Azure 구독 내에서 에이전트로 등록 가능한 리소스를 탐색합니다."""
+        # sso_token은 identity에서 가져옴 (있는 경우)
+        sso_token = identity.sso_token if identity else ""
+        tenant_id = identity.tenant_id if identity else ""
 
-@router.post("/{agent_id}/trigger-scheduled-run", response_model=TriggerScheduledRunResponse)
+        resources = await use_case.execute(
+            sso_token=sso_token, subscription_id=subscription_id, tenant_id=tenant_id
+        )
+        return DiscoverAgentResourcesResponse(items=resources)
+
+    @router.post("/azure-resources/poke", response_model=PokeAgentResponse)
+    async def poke_agent(
+        self,
+        request: PokeAgentRequest,
+        identity: Identity = Depends(get_current_identity),
+        use_case: PokeAgentUseCase = Depends(get_poke_agent_use_case),
+    ):
+        """특정 에이전트 리소스에 Wake-up 신호를 전송합니다."""
+        success = await use_case.execute(
+            storage_account_name=request.storage_account_name,
+            subscription_id=request.subscription_id,
+        )
+        return PokeAgentResponse(
+            success=success,
+            message="Poke signal sent" if success else "Failed to send poke signal",
+        )
+
+
+@router.post(
+    "/{agent_id}/trigger-scheduled-run", response_model=TriggerScheduledRunResponse
+)
 async def trigger_scheduled_run(
     agent_id: str,
     tenant_id: str,
@@ -220,7 +265,9 @@ async def report_agent_issue(
     tenant_id: str = "default_tenant",
     use_case: ReportAgentIssueUseCase = Depends(get_report_agent_issue_use_case),
 ):
-    issues = await use_case.execute(tenant_id=tenant_id, agent_id=agent_id, request=request.items)
+    issues = await use_case.execute(
+        tenant_id=tenant_id, agent_id=agent_id, request=request.items
+    )
     return {
         "message": "Issues reported successfully",
         "count": len(issues),
@@ -229,6 +276,7 @@ async def report_agent_issue(
 
 
 # --- Schedule sub-resource routes ---
+
 
 @router.get("/{agent_id}/schedules", response_model=ScheduleListResponse)
 async def list_schedules(
@@ -249,7 +297,9 @@ async def create_schedule(
     use_case: CreateScheduleUseCase = Depends(get_create_schedule_use_case),
 ):
     """에이전트에 정기 검진 스케줄을 추가합니다. (운영자 전용)"""
-    return await use_case.execute(identity=admin_identity, agent_id=agent_id, request=request)
+    return await use_case.execute(
+        identity=admin_identity, agent_id=agent_id, request=request
+    )
 
 
 @router.patch("/{agent_id}/schedules/{schedule_id}", response_model=ScheduleResponse)

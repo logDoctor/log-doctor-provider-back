@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     SUPPORT_CHANNEL_ID: str | None = None
     SUPPORT_SERVICE_URL: str = "https://smba.trafficmanager.net/kr/"
 
+    # Agent Discovery Settings
+    AGENT_TAG_NAME: str = "log-doctor-role"
+    AGENT_TAG_VALUE: str = "agent-storage"
+
     # Storage Settings
     # STORAGE_TYPE: filesystem | blob
     STORAGE_TYPE: str = "filesystem"

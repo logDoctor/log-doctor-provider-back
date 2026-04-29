@@ -13,6 +13,9 @@ param openAiEndpoint string
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
   location: location
+  tags: {
+    'log-doctor-role': 'agent-storage'
+  }
   sku: {
     name: 'Standard_LRS'
   }
