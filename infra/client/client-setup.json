@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "14650941013081619864"
+      "templateHash": "3998319441782651637"
     }
   },
   "parameters": {
@@ -267,7 +267,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "9063753987135945556"
+              "templateHash": "16312388949117563929"
             }
           },
           "parameters": {
@@ -314,6 +314,9 @@
               "apiVersion": "2023-01-01",
               "name": "[parameters('storageAccountName')]",
               "location": "[parameters('location')]",
+              "tags": {
+                "log-doctor-role": "agent-storage"
+              },
               "sku": {
                 "name": "Standard_LRS"
               },
