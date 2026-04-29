@@ -1,6 +1,6 @@
 from app.core.auth import Identity
 from app.core.exceptions import ForbiddenException
-from app.domains.agent.repository import AgentRepository
+from app.domains.agent.repositories import AgentRepository
 from app.domains.agent.schemas import AgentResponse, PlatformAdminListAgentsResponse
 
 

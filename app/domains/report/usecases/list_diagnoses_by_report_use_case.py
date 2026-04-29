@@ -1,4 +1,4 @@
-from ..repository import DiagnosisRepository
+from ..repositories import DiagnosisRepository
 from ..schemas import DiagnosisSchema
 
 

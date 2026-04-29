@@ -4,7 +4,7 @@ from app.core.exceptions import NotFoundException
 from app.core.logging import get_logger
 from app.domains.notification.service import NotificationService
 from app.domains.report.models import ReportStatus
-from app.domains.report.repository import DiagnosisRepository, ReportRepository
+from app.domains.report.repositories import DiagnosisRepository, ReportRepository
 
 logger = get_logger("update_report_status_use_case")
 

@@ -1,5 +1,5 @@
 from app.domains.report.models import Diagnosis
-from app.domains.report.repository import DiagnosisRepository
+from app.domains.report.repositories import DiagnosisRepository
 from app.domains.report.schemas import AddDiagnosesRequest
 
 

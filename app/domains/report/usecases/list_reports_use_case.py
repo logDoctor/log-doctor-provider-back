@@ -1,6 +1,6 @@
 from app.core.auth import Identity
 
-from ..repository import ReportRepository
+from ..repositories import ReportRepository
 from ..schemas import ReportListResponse, ReportSchema
 
 

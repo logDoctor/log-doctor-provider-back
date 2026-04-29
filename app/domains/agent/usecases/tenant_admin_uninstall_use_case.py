@@ -2,8 +2,8 @@ import structlog
 
 from app.core.auth import get_token_provider
 from app.core.interfaces.azure_arm import AzureArmService
-from app.domains.agent.repository import AgentRepository
-from app.domains.agent.schedule_repository import ScheduleRepository
+from app.domains.agent.repositories import AgentRepository
+from app.domains.agent.repositories import ScheduleRepository
 from app.domains.agent.schemas import TenantAdminUninstallResponse
 from app.domains.tenant.repositories import TenantRepository
 

@@ -8,7 +8,7 @@ from app.core.exceptions import (
     NotFoundException,
 )
 from app.core.interfaces.azure_arm import AzureArmService
-from app.domains.agent.repository import AgentRepository
+from app.domains.agent.repositories import AgentRepository
 from app.domains.agent.schemas import AgentResponse, RequestAgentUpdateResponse
 from app.domains.package.repository import AgentPackageRepository
 

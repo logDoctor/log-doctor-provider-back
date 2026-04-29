@@ -4,7 +4,7 @@ from app.core.auth import get_obo_access_token
 from app.core.auth.models import Identity
 from app.core.exceptions import ConflictException, NotFoundException
 from app.core.interfaces.azure_arm import AzureArmService
-from app.domains.agent.repository import AgentRepository
+from app.domains.agent.repositories import AgentRepository
 from app.domains.agent.schemas import CheckAzureResourceGroupStatusResponse
 
 logger = structlog.get_logger()

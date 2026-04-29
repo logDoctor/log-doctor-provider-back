@@ -5,7 +5,7 @@ from app.core.auth import Identity
 from app.core.exceptions import NotFoundException
 from app.core.logging import get_logger
 
-from ..repository import DiagnosisRepository, ReportRepository
+from ..repositories import DiagnosisRepository, ReportRepository
 from ..schemas import DiagnosisSchema, ReportSchema
 
 logger = get_logger("get_report_use_case")

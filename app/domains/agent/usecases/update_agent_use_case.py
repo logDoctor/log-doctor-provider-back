@@ -4,7 +4,7 @@ from app.core.exceptions import ConflictException, NotFoundException
 from app.core.auth.models import Identity
 from app.core.auth.services.graph_service import GraphService
 from app.domains.agent.models import AgentStatus
-from app.domains.agent.repository import AgentRepository
+from app.domains.agent.repositories import AgentRepository
 from app.domains.agent.schemas import AgentResponse, UpdateAgentResponse
 
 logger = structlog.get_logger()

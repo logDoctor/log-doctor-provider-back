@@ -1,8 +1,8 @@
 from app.core.auth.models import Identity
 from app.core.exceptions import ForbiddenException
 from app.domains.agent.models.schedule import Schedule
-from app.domains.agent.repository import AgentRepository
-from app.domains.agent.schedule_repository import ScheduleRepository
+from app.domains.agent.repositories import AgentRepository
+from app.domains.agent.repositories import ScheduleRepository
 
 
 class ListSchedulesUseCase:

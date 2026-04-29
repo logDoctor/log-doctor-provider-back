@@ -6,7 +6,7 @@ import structlog
 
 from app.core.auth.services.graph_service import GraphService
 from app.core.config import settings
-from app.domains.agent.repository import AgentRepository
+from app.domains.agent.repositories import AgentRepository
 from app.domains.tenant.repositories import TenantRepository
 from app.infra.external.teams import TeamsBotService
 

@@ -3,8 +3,7 @@ from fastapi import Depends
 from app.core.auth.dependencies import get_graph_service, get_token_provider
 from app.core.auth.services.auth_provider import TokenProvider
 from app.core.auth.services.graph_service import GraphService
-from app.domains.agent.dependencies import get_agent_repository
-from app.domains.agent.repository import AgentRepository
+from app.domains.agent.repositories import AgentRepository, get_agent_repository
 from app.domains.tenant.dependencies import get_tenant_repository
 from app.domains.tenant.repositories import TenantRepository
 from app.infra.db.cosmos import CosmosDB

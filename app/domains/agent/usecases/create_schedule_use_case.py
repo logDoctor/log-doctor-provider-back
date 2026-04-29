@@ -10,8 +10,8 @@ from app.core.exceptions import (
 from app.core.interfaces.azure_arm import AzureArmService
 from app.core.logging import get_logger
 from app.domains.agent.models.schedule import Schedule
-from app.domains.agent.repository import AgentRepository
-from app.domains.agent.schedule_repository import ScheduleRepository
+from app.domains.agent.repositories import AgentRepository
+from app.domains.agent.repositories import ScheduleRepository
 from app.domains.agent.schemas.schedule import CreateScheduleRequest
 
 logger = get_logger("create_schedule_use_case")

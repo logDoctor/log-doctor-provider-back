@@ -11,11 +11,11 @@ from app.core.interfaces.azure_arm import AzureArmService
 from app.core.interfaces.azure_queue import AzureQueueService
 from app.core.logging import get_logger
 from app.domains.agent.constants import AGENT_COMMAND_QUEUE_NAME, COMMAND_RUN_ANALYSIS
-from app.domains.agent.repository import AgentRepository
+from app.domains.agent.repositories import AgentRepository
 from app.domains.agent.schemas import AgentCommandMessage
 
 from ..models import Report, ReportStatus
-from ..repository import ReportRepository
+from ..repositories import ReportRepository
 from ..schemas import CreateReportRequest, CreateReportResponse, ReportSchema
 
 logger = get_logger("create_report_use_case")

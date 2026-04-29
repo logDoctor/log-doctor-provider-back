@@ -2,7 +2,7 @@ import asyncio
 from datetime import UTC, datetime
 
 from app.core.exceptions import NotFoundException
-from app.domains.report.repository import DiagnosisRepository, ReportRepository
+from app.domains.report.repositories import DiagnosisRepository, ReportRepository
 
 
 class UpdateDiagnosisResolutionUseCase:

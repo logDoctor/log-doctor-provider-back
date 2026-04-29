@@ -3,7 +3,7 @@ import asyncio
 from app.core.auth import Identity, get_obo_access_token
 from app.core.exceptions import ForbiddenException
 from app.core.interfaces.azure_arm import AzureArmService
-from app.domains.agent.repository import AgentRepository
+from app.domains.agent.repositories import AgentRepository
 from app.domains.agent.schemas import AgentResponse, TenantUserListAgentsResponse
 from app.domains.tenant.repositories import SubscriptionRepository, TenantRepository
 

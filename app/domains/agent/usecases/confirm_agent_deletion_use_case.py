@@ -1,8 +1,8 @@
 import structlog
 
 from app.core.exceptions import NotFoundException
-from app.domains.agent.repository import AgentRepository
-from app.domains.agent.schedule_repository import ScheduleRepository
+from app.domains.agent.repositories import AgentRepository
+from app.domains.agent.repositories import ScheduleRepository
 from app.domains.agent.schemas import AgentResponse, ConfirmAgentDeletionResponse
 
 logger = structlog.get_logger()

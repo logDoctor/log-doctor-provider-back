@@ -2,7 +2,7 @@ import logging
 
 from app.core.exceptions import InternalServerException, NotFoundException
 from app.domains.agent.models import Agent, AgentStatus
-from app.domains.agent.repository import AgentRepository
+from app.domains.agent.repositories import AgentRepository
 from app.domains.agent.schemas import HandshakeAgentRequest, HandshakeAgentResponse
 from app.domains.tenant.repositories import TenantRepository
 

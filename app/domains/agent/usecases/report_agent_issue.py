@@ -1,5 +1,5 @@
 from app.domains.agent.models import AgentIssue
-from app.domains.agent.repository import AgentIssueRepository
+from app.domains.agent.repositories import AgentIssueRepository
 from app.domains.agent.schemas import AgentIssueCreate
 
 

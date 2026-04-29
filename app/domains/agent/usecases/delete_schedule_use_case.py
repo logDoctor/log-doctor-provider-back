@@ -1,6 +1,6 @@
 from app.core.auth.models import Identity
 from app.core.exceptions import ForbiddenException, NotFoundException
-from app.domains.agent.schedule_repository import ScheduleRepository
+from app.domains.agent.repositories import ScheduleRepository
 
 
 class DeleteScheduleUseCase:

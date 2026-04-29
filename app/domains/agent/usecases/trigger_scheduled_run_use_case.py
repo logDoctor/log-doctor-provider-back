@@ -7,12 +7,12 @@ from app.core.cron import CronHelper
 from app.core.interfaces.azure_queue import AzureQueueService
 from app.core.logging import get_logger
 from app.domains.agent.constants import AGENT_COMMAND_QUEUE_NAME, COMMAND_RUN_ANALYSIS
-from app.domains.agent.repository import AgentRepository
-from app.domains.agent.schedule_repository import ScheduleRepository
+from app.domains.agent.repositories import AgentRepository
+from app.domains.agent.repositories import ScheduleRepository
 from app.domains.agent.schemas import AgentCommandMessage
 from app.domains.agent.schemas.schedule import TriggerScheduledRunResponse
 from app.domains.report.models import Report
-from app.domains.report.repository import ReportRepository
+from app.domains.report.repositories import ReportRepository
 
 logger = get_logger("trigger_scheduled_run_use_case")
 
