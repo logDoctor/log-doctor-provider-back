@@ -14,7 +14,7 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   properties: {
     customSubDomainName: openAiAccountName
     publicNetworkAccess: 'Enabled'
-
+    restore: true
   }
 }
 
