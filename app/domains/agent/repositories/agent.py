@@ -188,7 +188,7 @@ class AzureAgentRepository(AgentRepository):
 
         # 구독 기반 조회는 테넌트(PartitionKey)에 관계없이 수행해야 하므로 cross-partition query 사용
         items = self.container.query_items(
-            query=query, parameters=parameters, enable_cross_partition_query=True
+            query=query, parameters=parameters
         )
         async for item in items:
             return Agent.from_dict(item)

@@ -9,7 +9,7 @@ class PokeAgentUseCase:
     def __init__(self, queue_service: AzureQueueService):
         self.queue_service = queue_service
 
-    async def execute(self, storage_account_name: str, subscription_id: str) -> bool:
+    async def execute(self, storage_account_name: str, tenant_id: str | None = None) -> bool:
         """
         특정 에이전트의 큐에 메시지를 보내 즉시 기상(Wake-up)시킵니다.
         """
@@ -17,9 +17,9 @@ class PokeAgentUseCase:
             # 큐 메시지 전송 (빈 메시지여도 QueueTrigger가 작동함)
             # 큐 이름은 Bicep에 정의된 'diagnosis-requests' 사용
             await self.queue_service.push(
-                storage_account_name=storage_account_name,
+                account_name=storage_account_name,
                 queue_name="diagnosis-requests",
-                subscription_id=subscription_id,
+                tenant_id=tenant_id,
                 message={"command": "WAKE_UP"},
             )
             logger.info(

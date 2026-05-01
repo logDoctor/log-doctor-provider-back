@@ -235,7 +235,7 @@ class AgentRouter:
         """특정 에이전트 리소스에 Wake-up 신호를 전송합니다."""
         success = await use_case.execute(
             storage_account_name=request.storage_account_name,
-            subscription_id=request.subscription_id,
+            tenant_id=identity.tenant_id if identity else None,
         )
         return PokeAgentResponse(
             success=success,
