@@ -28,9 +28,9 @@ from .schemas import (
     UpdateTenantResponse,
 )
 from .usecases import (
-    GetTeamDetailUseCase,
     GetSubscriptionSetupInfoUseCase,
     GetSubscriptionsUseCase,
+    GetTeamDetailUseCase,
     GetTenantStatusUseCase,
     ListChannelsUseCase,
     ListJoinedTeamsUseCase,
@@ -100,7 +100,9 @@ class TenantRouter:
         """
         현재 팀 내의 알림 수신 가능한 채널 목록을 조회합니다.
         """
-        return await use_case.execute(identity.tenant_id, team_id, sso_token=identity.sso_token)
+        return await use_case.execute(
+            identity.tenant_id, team_id, sso_token=identity.sso_token
+        )
 
     @router.get("/me/teams/{team_id}")
     async def get_team_detail(

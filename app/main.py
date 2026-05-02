@@ -22,6 +22,15 @@ from app.core.handlers import (
 from app.core.logging import setup_logging
 from app.core.middleware import LoggingMiddleware
 from app.core.routing import ExcludeNoneRoute
+from app.domains.insight.repositories.azure_insight_repository import (
+    AzureInsightRepository,
+)
+from app.domains.insight.services.insight_queue_worker import InsightQueueWorker
+from app.domains.insight.usecases.recalculate_metrics_use_case import (
+    RecalculateMetricsUseCase,
+)
+from app.domains.insight.usecases.update_insight_use_case import UpdateInsightUseCase
+from app.domains.report.repositories.report import AzureReportRepository
 from app.infra.db.cosmos import CosmosDB
 
 
@@ -46,8 +55,27 @@ async def lifespan(app: FastAPI):
         logger.critical("Startup failed. Could not initialize infrastructure.")
         sys.exit(1)
 
+    # Insight Worker 시작
+    client = await CosmosDB.get_client()
+    db = client.get_database_client(settings.COSMOS_DATABASE)
+
+    insight_repo = AzureInsightRepository(client, settings.COSMOS_DATABASE)
+    report_repo = AzureReportRepository(db.get_container_client("reports"))
+
+    update_use_case = UpdateInsightUseCase(insight_repo)
+    recalculate_use_case = RecalculateMetricsUseCase(insight_repo, report_repo)
+
+    worker = InsightQueueWorker(
+        settings.AZURE_STORAGE_CONNECTION_STRING, update_use_case, recalculate_use_case
+    )
+    await worker.start()
+
     yield
 
+    # Insight Worker 종료
+    await worker.stop()
+
+    # Cosmos 클라이언트 종료
     await CosmosDB.close()
 
 

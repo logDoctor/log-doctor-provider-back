@@ -5,6 +5,7 @@ from app.api.v1.endpoints.support import router as support_router
 from app.api.v1.endpoints.teams_webhook import router as teams_webhook_router
 from app.api.v1.endpoints.template import router as template_router
 from app.domains.agent.router import router as agent_router
+from app.domains.insight.router import router as insight_router
 from app.domains.license.router import router as license_router
 from app.domains.notification.router import router as notification_router
 from app.domains.package.router import router as package_router
@@ -23,3 +24,4 @@ v1_router.include_router(report_router, prefix="/reports")
 v1_router.include_router(license_router, prefix="/licenses")
 v1_router.include_router(package_router, prefix="/packages")
 v1_router.include_router(inspection_rules_router, prefix="/inspection-rules")
+v1_router.include_router(insight_router, prefix="/insights")
