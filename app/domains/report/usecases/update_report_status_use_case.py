@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 
 from app.core.exceptions import NotFoundException
 from app.core.logging import get_logger
@@ -18,10 +19,12 @@ class UpdateReportStatusUseCase:
         report_repository: ReportRepository,
         diagnosis_repository: DiagnosisRepository,
         notification_service: NotificationService,
+        insight_publisher: Any = None,  # DI를 위해 추가
     ):
         self.report_repository = report_repository
         self.diagnosis_repository = diagnosis_repository
         self.notification_service = notification_service
+        self.insight_publisher = insight_publisher
 
     async def execute(
         self,
@@ -95,6 +98,34 @@ class UpdateReportStatusUseCase:
                             else "ko",
                         )
                     )
-                    logger.info("triggering_notification", report_id=report.id, language=report.request_params.get("language") if report.request_params else "MISSING")
+                    logger.info(
+                        "triggering_notification",
+                        report_id=report.id,
+                        language=report.request_params.get("language")
+                        if report.request_params
+                        else "MISSING",
+                    )
                 except Exception as e:
-                    logger.error("failed_to_trigger_notification", report_id=report.id, error=str(e))
+                    logger.error(
+                        "failed_to_trigger_notification",
+                        report_id=report.id,
+                        error=str(e),
+                    )
+
+            if "status" in updated_fields and report.status == ReportStatus.COMPLETED:
+                if self.insight_publisher:
+                    try:
+                        asyncio.create_task(
+                            self.insight_publisher.publish(
+                                event_type="report_completed",
+                                tenant_id=report.tenant_id,
+                                agent_id=report.agent_id,
+                                report_id=report.id,
+                            )
+                        )
+                    except Exception as e:
+                        logger.error(
+                            "failed_to_publish_insight_event",
+                            report_id=report.id,
+                            error=str(e),
+                        )
