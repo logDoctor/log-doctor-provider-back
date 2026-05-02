@@ -111,6 +111,54 @@ resource schedulesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/
   }
 }
 
+resource insightsDailyContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
+  parent: cosmosDb
+  name: 'insights_daily'
+  properties: {
+    resource: {
+      id: 'insights_daily'
+      partitionKey: { paths: [ '/tenant_id' ], kind: 'Hash' }
+      defaultTtl: -1
+    }
+  }
+}
+
+resource insightsWeeklyContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
+  parent: cosmosDb
+  name: 'insights_weekly'
+  properties: {
+    resource: {
+      id: 'insights_weekly'
+      partitionKey: { paths: [ '/tenant_id' ], kind: 'Hash' }
+      defaultTtl: -1
+    }
+  }
+}
+
+resource insightsMonthlyContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
+  parent: cosmosDb
+  name: 'insights_monthly'
+  properties: {
+    resource: {
+      id: 'insights_monthly'
+      partitionKey: { paths: [ '/tenant_id' ], kind: 'Hash' }
+      defaultTtl: -1
+    }
+  }
+}
+
+resource insightsTotalContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
+  parent: cosmosDb
+  name: 'insights_total'
+  properties: {
+    resource: {
+      id: 'insights_total'
+      partitionKey: { paths: [ '/tenant_id' ], kind: 'Hash' }
+      defaultTtl: -1
+    }
+  }
+}
+
 output cosmosAccountId string = cosmosAccount.id
 output cosmosAccountName string = cosmosAccount.name
 output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint

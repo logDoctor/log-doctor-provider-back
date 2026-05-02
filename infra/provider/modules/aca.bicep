@@ -222,4 +222,16 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing 
   name: last(split(storageAccountId, '/'))
 }
 
+// 6. ACA에 Storage Queue 데이터를 읽고 쓸 권한(Storage Queue Data Contributor) 부여
+var storageQueueDataContributorRole = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
+resource queueRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (storageAccountId != '') {
+  name: guid(storageAccount.id, storageQueueDataContributorRole, aca.id)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageQueueDataContributorRole)
+    principalId: aca.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 output acaUrl string = aca.properties.configuration.ingress.fqdn
