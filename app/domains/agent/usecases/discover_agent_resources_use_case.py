@@ -23,7 +23,7 @@ class DiscoverAgentResourcesUseCase:
         2. ARM API를 사용하여 특정 태그가 붙은 리소스를 조회합니다.
         3. 조회된 리소스를 최신 생성일 순으로 정렬하여 반환합니다.
         """
-        # 1. 해당 구독에 이미 활성(ACTIVE) 상태인 에이전트가 있는지 확인
+        # 1. 해당 구독에 이미 활성(ACTIVE) 상태인 에이전트가 있는지 확인 (로깅용으로만 유지)
         active_agent = await self.agent_repository.get_agent_by_subscription(
             subscription_id=subscription_id, statuses=[AgentStatus.ACTIVE]
         )
@@ -32,8 +32,8 @@ class DiscoverAgentResourcesUseCase:
             logger.info(
                 "active_agent_already_exists_for_subscription",
                 subscription_id=subscription_id,
+                agent_id=active_agent.agent_id
             )
-            return []
 
         # 2. 태그 기반 리소스 조회
         resources = await self.arm_service.list_resources_by_tag(

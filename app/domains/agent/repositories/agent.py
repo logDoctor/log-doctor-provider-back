@@ -116,7 +116,7 @@ class AzureAgentRepository(AgentRepository):
         items = self.container.query_items(
             query=query, parameters=parameters, partition_key=tenant_id
         )
-        return [Agent.from_dict(item) async for item in items]
+        return [item async for item in items]
 
     async def list_agents(
         self,
@@ -191,5 +191,5 @@ class AzureAgentRepository(AgentRepository):
             query=query, parameters=parameters
         )
         async for item in items:
-            return Agent.from_dict(item)
+            return item
         return None
