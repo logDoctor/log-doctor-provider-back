@@ -26,6 +26,7 @@ from app.domains.insight.repositories.azure_insight_repository import (
     AzureInsightRepository,
 )
 from app.domains.insight.services.insight_queue_worker import InsightQueueWorker
+from app.domains.insight.usecases.rebuild_insight_use_case import RebuildInsightUseCase
 from app.domains.insight.usecases.recalculate_metrics_use_case import (
     RecalculateMetricsUseCase,
 )
