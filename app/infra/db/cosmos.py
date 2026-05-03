@@ -112,7 +112,12 @@ def cosmos_error_handler(func=None, *, map_to=None):
                     and not isinstance(result, tuple)
                 ):
                     if isinstance(result, list):
-                        return [map_to.from_dict(item) for item in result]
+                        return [
+                            item if isinstance(item, map_to) else map_to.from_dict(item)
+                            for item in result
+                        ]
+                    if isinstance(result, map_to):
+                        return result
                     return map_to.from_dict(result)
                 return result
             except CosmosResourceNotFoundError:
