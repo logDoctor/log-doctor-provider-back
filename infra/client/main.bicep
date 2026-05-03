@@ -49,7 +49,6 @@ module openAi 'modules/openai.bicep' = {
   params: {
     location: openAiLocation
     openAiAccountName: openAiAccountName
-
   }
 }
 

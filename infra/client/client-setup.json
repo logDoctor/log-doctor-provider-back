@@ -176,8 +176,7 @@
               },
               "properties": {
                 "customSubDomainName": "[parameters('openAiAccountName')]",
-                "publicNetworkAccess": "Enabled",
-                "restore": true
+                "publicNetworkAccess": "Enabled"
               }
             },
             {
