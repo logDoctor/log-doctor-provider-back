@@ -4,9 +4,9 @@ from app.core.interfaces.azure_arm import AzureArmService
 from app.core.interfaces.azure_queue import AzureQueueService
 from app.domains.agent.repositories import get_agent_repository
 from app.domains.agent.repositories.agent import AgentRepository
+from app.domains.insight.dependencies import get_insight_publisher
 from app.domains.notification.dependencies import get_notification_service
 from app.domains.notification.service import NotificationService
-from app.infra.db.cosmos import CosmosDB
 from app.infra.external.azure.dependencies import (
     get_azure_arm_service,
     get_azure_queue_service,
@@ -66,9 +66,13 @@ def get_update_report_status_use_case(
     report_repository: ReportRepository = Depends(get_report_repository),
     diagnosis_repository: DiagnosisRepository = Depends(get_diagnosis_repository),
     notification_service: NotificationService = Depends(get_notification_service),
+    insight_publisher=Depends(get_insight_publisher),
 ) -> UpdateReportStatusUseCase:
     return UpdateReportStatusUseCase(
-        report_repository, diagnosis_repository, notification_service
+        report_repository,
+        diagnosis_repository,
+        notification_service,
+        insight_publisher,
     )
 
 
