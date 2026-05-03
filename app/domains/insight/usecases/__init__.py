@@ -2,3 +2,4 @@ from .get_insight_use_case import GetInsightUseCase
 from .rebuild_insight_use_case import RebuildInsightUseCase
 from .update_insight_use_case import UpdateInsightUseCase
 from .recalculate_metrics_use_case import RecalculateMetricsUseCase
+from .get_active_risks_use_case import GetActiveRisksUseCase
