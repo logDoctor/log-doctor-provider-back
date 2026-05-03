@@ -39,6 +39,21 @@ class InsightEventMessage(BaseModel):
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
+class ActiveRiskDetailSchema(BaseModel):
+    report_id: str
+    diagnosis_id: str
+    engine_code: str
+    title: str
+    severity: str
+    created_at: datetime
+
+
+class ActiveRisksListResponse(BaseModel):
+    items: List[ActiveRiskDetailSchema]
+    total_count: int
+    has_more: bool
+
+
 class InsightRebuildResponse(BaseModel):
     status: str
     agent_id: str
