@@ -20,7 +20,7 @@ class DiagnosisSchema(BaseModel):
     tenant_id: str
     inspection_code: str
 
-    status: str  # DETECTED | HEALTHY
+    status: str  # DETECTED | HEALTHY | UNDIAGNOSED
     description: str
     resource_id: str
     prescriptions: list[str]

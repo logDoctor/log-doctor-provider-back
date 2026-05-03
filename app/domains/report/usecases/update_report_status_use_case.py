@@ -52,10 +52,13 @@ class UpdateReportStatusUseCase:
                 )
 
             detected = sum(
-                1 for d in diagnoses if get_val(d, "status", "").lower() != "healthy"
+                1 for d in diagnoses if get_val(d, "status", "").upper() == "DETECTED"
             )
             healthy = sum(
-                1 for d in diagnoses if get_val(d, "status", "").lower() == "healthy"
+                1 for d in diagnoses if get_val(d, "status", "").upper() == "HEALTHY"
+            )
+            undiagnosed = sum(
+                1 for d in diagnoses if get_val(d, "status", "").upper() == "UNDIAGNOSED"
             )
             resolved = sum(1 for d in diagnoses if get_val(d, "is_resolved", False))
 
@@ -73,6 +76,7 @@ class UpdateReportStatusUseCase:
                 "resolved_diagnosis_count": resolved,
                 "detected_diagnosis_count": detected,
                 "healthy_diagnosis_count": healthy,
+                "undiagnosed_diagnosis_count": undiagnosed,
                 "resource_groups": [
                     {"id": info["id"], "name": info["name"]} for info in rgs.values()
                 ],
@@ -112,8 +116,11 @@ class UpdateReportStatusUseCase:
                         error=str(e),
                     )
 
-            if "status" in updated_fields and report.status == ReportStatus.COMPLETED:
-                if self.insight_publisher:
+            if (
+                "status" in updated_fields
+                and report.status == ReportStatus.COMPLETED
+                and self.insight_publisher
+            ):
                     try:
                         asyncio.create_task(
                             self.insight_publisher.publish(
