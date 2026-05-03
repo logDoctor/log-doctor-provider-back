@@ -1,3 +1,5 @@
+# No imports from typing needed
+
 from fastapi import Depends, HTTPException, Query
 from fastapi_restful.cbv import cbv
 
@@ -5,9 +7,13 @@ from app.core.auth.guards import get_current_identity
 from app.core.auth.models import Identity
 from app.core.routing import APIRouter
 
-from .dependencies import get_get_insight_use_case, get_rebuild_insight_use_case
-from .schemas import InsightRebuildResponse, InsightResponse
-from .usecases import GetInsightUseCase, RebuildInsightUseCase
+from .dependencies import (
+    get_get_active_risks_use_case,
+    get_get_insight_use_case,
+    get_rebuild_insight_use_case,
+)
+from .schemas import ActiveRisksListResponse, InsightRebuildResponse, InsightResponse
+from .usecases import GetActiveRisksUseCase, GetInsightUseCase, RebuildInsightUseCase
 
 router = APIRouter(tags=["Insight"])
 
@@ -26,7 +32,7 @@ class InsightRouter:
         result = await use_case.execute(
             identity=identity,
             agent_id=agent_id,
-            period=period,
+            period=period.lower(),
         )
 
         if not result:
@@ -54,4 +60,21 @@ class InsightRouter:
             agent_id=agent_id,
             containers_updated=["daily", "weekly", "monthly", "total"],
             total_reports_processed=count,
+        )
+
+    @router.get("/active-risks", response_model=ActiveRisksListResponse)
+    async def get_active_risks(
+        self,
+        agent_id: str = Query(..., description="에이전트 ID"),
+        limit: int = Query(20, description="조회 개수"),
+        cursor: str | None = Query(None, description="페이지네이션 커서"),
+        identity: Identity = Depends(get_current_identity),
+        use_case: GetActiveRisksUseCase = Depends(get_get_active_risks_use_case),
+    ):
+        """에이전트의 현재 해결되지 않은 활성 리스크 목록을 조회합니다."""
+        return await use_case.execute(
+            tenant_id=identity.tenant_id,
+            agent_id=agent_id,
+            limit=limit,
+            cursor=cursor,
         )

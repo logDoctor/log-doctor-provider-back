@@ -1,11 +1,15 @@
 from fastapi import Depends
 
 from app.core.config import settings
-from app.domains.report.repositories import AzureReportRepository, get_report_repository
+from app.domains.report.repositories import (
+    get_diagnosis_repository,
+    get_report_repository,
+)
 from app.infra.db.cosmos import CosmosDB
 
 from .repositories.azure_insight_repository import AzureInsightRepository
 from .services.insight_event_publisher import InsightEventPublisher
+from .usecases.get_active_risks_use_case import GetActiveRisksUseCase
 from .usecases.get_insight_use_case import GetInsightUseCase
 from .usecases.rebuild_insight_use_case import RebuildInsightUseCase
 from .usecases.recalculate_metrics_use_case import RecalculateMetricsUseCase
@@ -42,3 +46,10 @@ async def get_recalculate_metrics_use_case(
     report_repo=Depends(get_report_repository),
 ):
     return RecalculateMetricsUseCase(insight_repo, report_repo)
+
+
+async def get_get_active_risks_use_case(
+    report_repo=Depends(get_report_repository),
+    diagnosis_repo=Depends(get_diagnosis_repository),
+):
+    return GetActiveRisksUseCase(report_repo, diagnosis_repo)
