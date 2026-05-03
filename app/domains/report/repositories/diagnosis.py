@@ -51,8 +51,9 @@ class AzureDiagnosisRepository(DiagnosisRepository):
         ]
 
         if resource_group:
-            query += " AND CONTAINS(LOWER(c.resource_id), LOWER(@rg_pattern))"
+            query += " AND (CONTAINS(LOWER(c.resource_id), LOWER(@rg_pattern)) OR LOWER(c.resource_group.name) = LOWER(@rg_name))"
             parameters.append({"name": "@rg_pattern", "value": f"/resourcegroups/{resource_group}/"})
+            parameters.append({"name": "@rg_name", "value": resource_group})
 
         items_iterable = self.container.query_items(
             query=query,
