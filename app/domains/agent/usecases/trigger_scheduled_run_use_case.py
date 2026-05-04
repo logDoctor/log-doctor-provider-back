@@ -11,6 +11,7 @@ from app.domains.agent.repositories import AgentRepository
 from app.domains.agent.repositories import ScheduleRepository
 from app.domains.agent.schemas import AgentCommandMessage
 from app.domains.agent.schemas.schedule import TriggerScheduledRunResponse
+from app.domains.package.repository import AgentPackageRepository
 from app.domains.report.models import Report
 from app.domains.report.repositories import ReportRepository
 
@@ -33,11 +34,13 @@ class TriggerScheduledRunUseCase:
         report_repository: ReportRepository,
         agent_repository: AgentRepository,
         azure_queue_service: AzureQueueService,
+        package_repository: AgentPackageRepository,
     ):
         self.schedule_repository = schedule_repository
         self.report_repository = report_repository
         self.agent_repository = agent_repository
         self.azure_queue_service = azure_queue_service
+        self.package_repository = package_repository
 
     async def execute(
         self, tenant_id: str, agent_id: str
@@ -45,6 +48,21 @@ class TriggerScheduledRunUseCase:
         agent = await self.agent_repository.get_by_id(tenant_id, agent_id)
         if not agent or not agent.can_start_analysis():
             return TriggerScheduledRunResponse(triggered=False)
+
+        # 🚀 [NEW] 메이저 버전 체크 (업데이트 강제 정책) - 스케줄 실행 차단
+        latest_pkg = await self.package_repository.get_by_version("latest")
+        if latest_pkg and agent.version:
+            agent_major = int(agent.version.split(".")[0]) if "." in agent.version else 0
+            latest_major = int(latest_pkg.version.split(".")[0]) if "." in latest_pkg.version else 0
+            
+            if agent_major < latest_major:
+                logger.warning(
+                    "scheduled_run_skipped_outdated_version",
+                    agent_id=agent_id,
+                    current_version=agent.version,
+                    latest_version=latest_pkg.version
+                )
+                return TriggerScheduledRunResponse(triggered=False)
 
         storage_account_name = agent.get_storage_account_name()
         if not storage_account_name:

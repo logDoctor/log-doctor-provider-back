@@ -11,6 +11,8 @@ from app.infra.external.azure.dependencies import (
     get_azure_arm_service,
     get_azure_queue_service,
 )
+from app.domains.package.dependencies import get_agent_package_repository
+from app.domains.package.repository import AgentPackageRepository
 
 from .repositories import (
     DiagnosisRepository,
@@ -34,12 +36,14 @@ async def get_create_report_use_case(
     agent_repository: AgentRepository = Depends(get_agent_repository),
     azure_queue_service: AzureQueueService = Depends(get_azure_queue_service),
     azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
+    package_repository: AgentPackageRepository = Depends(get_agent_package_repository),
 ) -> CreateReportUseCase:
     return CreateReportUseCase(
         report_repository,
         agent_repository,
         azure_queue_service,
         azure_arm_service,
+        package_repository,
     )
 
 

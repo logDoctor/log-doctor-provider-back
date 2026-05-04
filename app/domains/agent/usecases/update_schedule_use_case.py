@@ -9,9 +9,9 @@ from app.core.exceptions import (
 )
 from app.core.interfaces.azure_arm import AzureArmService
 from app.core.logging import get_logger
-from app.domains.agent.repositories import AgentRepository
-from app.domains.agent.repositories import ScheduleRepository
+from app.domains.agent.repositories import AgentRepository, ScheduleRepository
 from app.domains.agent.schemas.schedule import UpdateScheduleRequest
+from app.domains.package.repository import AgentPackageRepository
 
 logger = get_logger("update_schedule_use_case")
 
@@ -22,10 +22,12 @@ class UpdateScheduleUseCase:
         schedule_repository: ScheduleRepository,
         agent_repository: AgentRepository,
         azure_arm_service: AzureArmService,
+        package_repository: AgentPackageRepository,
     ):
         self.schedule_repository = schedule_repository
         self.agent_repository = agent_repository
         self.azure_arm_service = azure_arm_service
+        self.package_repository = package_repository
 
     async def execute(
         self,
@@ -39,6 +41,21 @@ class UpdateScheduleUseCase:
             raise NotFoundException(f"Schedule {schedule_id} not found.")
         if schedule.tenant_id != identity.tenant_id or schedule.agent_id != agent_id:
             raise ForbiddenException("Access denied.")
+
+        # 🚀 [NEW] 메이저 버전 체크 (업데이트 강제 정책) - 스케줄 관리 차단
+        agent = await self.agent_repository.get_by_id(identity.tenant_id, agent_id)
+        if not agent:
+            raise NotFoundException(f"Agent {agent_id} not found.")
+
+        latest_pkg = await self.package_repository.get_by_version("latest")
+        if latest_pkg and agent.version:
+            agent_major = int(agent.version.split(".")[0]) if "." in agent.version else 0
+            latest_major = int(latest_pkg.version.split(".")[0]) if "." in latest_pkg.version else 0
+            
+            if agent_major < latest_major:
+                raise ForbiddenException(
+                    f"Agent version {agent.version} is outdated. Major update to {latest_pkg.version} is required before managing schedules."
+                )
 
         if request.enabled is not None:
             schedule.enabled = request.enabled
@@ -61,9 +78,6 @@ class UpdateScheduleUseCase:
             schedule.next_run_at = next_run.isoformat()
 
         if request.configurations is not None:
-            agent = await self.agent_repository.get_by_id(
-                identity.tenant_id, schedule.agent_id
-            )
             all_rg_ids = set()
             for config in request.configurations:
                 if config.resource_groups:

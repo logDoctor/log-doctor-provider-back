@@ -141,9 +141,10 @@ def get_create_schedule_use_case(
     schedule_repository: ScheduleRepository = Depends(get_schedule_repository),
     agent_repository: AgentRepository = Depends(get_agent_repository),
     azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
+    package_repository: AgentPackageRepository = Depends(get_agent_package_repository),
 ) -> CreateScheduleUseCase:
     return CreateScheduleUseCase(
-        schedule_repository, agent_repository, azure_arm_service
+        schedule_repository, agent_repository, azure_arm_service, package_repository
     )
 
 
@@ -151,9 +152,10 @@ def get_update_schedule_use_case(
     schedule_repository: ScheduleRepository = Depends(get_schedule_repository),
     agent_repository: AgentRepository = Depends(get_agent_repository),
     azure_arm_service: AzureArmService = Depends(get_azure_arm_service),
+    package_repository: AgentPackageRepository = Depends(get_agent_package_repository),
 ) -> UpdateScheduleUseCase:
     return UpdateScheduleUseCase(
-        schedule_repository, agent_repository, azure_arm_service
+        schedule_repository, agent_repository, azure_arm_service, package_repository
     )
 
 
@@ -168,12 +170,14 @@ def get_trigger_scheduled_run_use_case(
     report_repository: ReportRepository = Depends(get_report_repository),
     agent_repository: AgentRepository = Depends(get_agent_repository),
     azure_queue_service: AzureQueueService = Depends(get_azure_queue_service),
+    package_repository: AgentPackageRepository = Depends(get_agent_package_repository),
 ) -> TriggerScheduledRunUseCase:
     return TriggerScheduledRunUseCase(
         schedule_repository,
         report_repository,
         agent_repository,
         azure_queue_service,
+        package_repository,
     )
 
 
