@@ -13,6 +13,7 @@ from app.core.logging import get_logger
 from app.domains.agent.constants import AGENT_COMMAND_QUEUE_NAME, COMMAND_RUN_ANALYSIS
 from app.domains.agent.repositories import AgentRepository
 from app.domains.agent.schemas import AgentCommandMessage
+from app.domains.package.repository import AgentPackageRepository
 
 from ..models import Report, ReportStatus
 from ..repositories import ReportRepository
@@ -28,11 +29,13 @@ class CreateReportUseCase:
         agent_repository: AgentRepository,
         azure_queue_service: AzureQueueService,
         azure_arm_service: AzureArmService,
+        package_repository: AgentPackageRepository,
     ):
         self.report_repository = report_repository
         self.agent_repository = agent_repository
         self.azure_queue_service = azure_queue_service
         self.azure_arm_service = azure_arm_service
+        self.package_repository = package_repository
 
     async def execute(
         self,
@@ -50,6 +53,17 @@ class CreateReportUseCase:
             raise ForbiddenException(
                 f"Cannot start analysis for agent in status: {agent.status.value}"
             )
+
+        # 🚀 [NEW] 메이저 버전 체크 (업데이트 강제 정책)
+        latest_pkg = await self.package_repository.get_by_version("latest")
+        if latest_pkg and agent.version:
+            agent_major = int(agent.version.split(".")[0]) if "." in agent.version else 0
+            latest_major = int(latest_pkg.version.split(".")[0]) if "." in latest_pkg.version else 0
+            
+            if agent_major < latest_major:
+                raise ForbiddenException(
+                    f"Agent version {agent.version} is outdated. Major update to {latest_pkg.version} is required before starting new analysis."
+                )
 
         storage_account_name = agent.get_storage_account_name()
         if not storage_account_name:
